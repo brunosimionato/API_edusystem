@@ -145,4 +145,3 @@ export class Professor {
         return new Professor(obj);
     }
 }
-

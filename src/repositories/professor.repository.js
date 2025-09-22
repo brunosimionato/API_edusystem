@@ -249,4 +249,3 @@ export class ProfessorRepository {
         await this.db.query("DELETE FROM usuarios WHERE id_usuarios = $1", [usuario_id]);
     }
 }
-
