@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
+import { AlunoRepository } from '../repositories/aluno.repository.js';
 import { AlunoService } from '../services/aluno.service.js';
-import { UsuarioService } from '../services/usuario.service.js';
 import { HashingService } from '../services/hashing.service.js';
 
 import { createAuthMiddleware } from './auth.middleware.js';
@@ -15,8 +15,8 @@ import { createAuthMiddleware } from './auth.middleware.js';
  * @returns {Router}
  */
 export function createAlunoRouter(db, hashingService) {
-    const usuarioService = new UsuarioService(db, hashingService);
-    const alunoService = new AlunoService(db, usuarioService);
+    const alunoRepository = new AlunoRepository(db);
+    const alunoService = new AlunoService(db, alunoRepository);
     const router = Router();
 
     router.use(createAuthMiddleware(hashingService))

@@ -207,4 +207,3 @@ export class ProfessorService {
         await this.db.query("DELETE FROM usuarios WHERE id_usuarios = $1", [usuario_id]);
     }
 }
-

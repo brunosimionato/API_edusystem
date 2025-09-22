@@ -1,3 +1,4 @@
+import { ProfessorRepository } from '../repositories/professor.repository.js';
 import { DisciplinaService } from '../services/disciplina.service.js';
 import { ProfessorService } from '../services/professor.service.js'
 import { SecretariaService } from '../services/secretaria.service.js'
@@ -20,7 +21,8 @@ export async function seed(db, hashingService) {
     const usuarioService = new UsuarioService(db, hashingService);
     const disciplinaService = new DisciplinaService(db);
 
-    const professorService = new ProfessorService(db, usuarioService);
+    const professorRepository = new ProfessorRepository(db);
+    const professorService = new ProfessorService(db, usuarioService, disciplinaService, professorRepository);
     const secretariaService = new SecretariaService(db, usuarioService);
 
     const professorUsuario = await usuarioService.create({
@@ -41,7 +43,7 @@ export async function seed(db, hashingService) {
         nome: "Matemática"
     });
 
-    const professor = await professorService.create({
+    const professor = await professorService.create(undefined, {
         idUsuario: professorUsuario.id,
         idDisciplinaEspecialidade: disciplina.id,
         telefone: "123456789",
