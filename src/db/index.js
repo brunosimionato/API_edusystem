@@ -11,9 +11,10 @@ let pool
  */
 export async function get_db() {
     if (!pool) {
+        console.log("CONNECTION_STRING:", process.env.CONNECTION_STRING);
         pool = new Pool({
             connectionString: process.env.CONNECTION_STRING
-        });
+        });      
     }
 
     const client = await pool.connect();

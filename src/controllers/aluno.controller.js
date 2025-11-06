@@ -1,82 +1,103 @@
-import { Router } from 'express';
-
-import { AlunoRepository } from '../repositories/aluno.repository.js';
+// src/controllers/aluno.controller.js
+import express from 'express';
+import { get_db } from '../db/index.js'; 
 import { AlunoService } from '../services/aluno.service.js';
-import { HashingService } from '../services/hashing.service.js';
-
+import { AlunoRepository } from '../repositories/aluno.repository.js';
 import { createAuthMiddleware } from './auth.middleware.js';
 
-/**
- * Cria e retorna um router de aluno, recebendo a conexão db
- * 
- * @param {import('../db/index.js').PoolClient} db
- * @param {HashingService} hashingService
- * 
- * @returns {Router}
- */
-export function createAlunoRouter(db, hashingService) {
+export class AlunoController {
+  constructor(db) { // ✅ Recebe db como parâmetro
     const alunoRepository = new AlunoRepository(db);
-    const alunoService = new AlunoService(db, alunoRepository);
-    const router = Router();
+    this.alunoService = new AlunoService(db, alunoRepository);
+  }
 
-    router.use(createAuthMiddleware(hashingService))
+  async list(req, res) {
+    try {
+      const alunos = await this.alunoService.list();
+      res.json(alunos);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 
-    router.get('/', async (req, res) => {
-        const alunos = await alunoService.list();
-        res.json(alunos);
-    });
+  async getById(req, res) {
+    try {
+      const { id } = req.params;
+      const aluno = await this.alunoService.getById(parseInt(id));
+      
+      if (!aluno) {
+        return res.status(404).json({ error: 'Aluno não encontrado' });
+      }
+      
+      res.json(aluno);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 
-    router.get('/:id', async (req, res) => {
-        const aluno = await alunoService.getById(req.params.id);
+  async create(req, res) {
+    try {
+      const alunoData = req.body;
+      
+      if (alunoData.nascimento && typeof alunoData.nascimento === 'string') {
+        alunoData.nascimento = new Date(alunoData.nascimento);
+      }
 
-        if (!aluno) {
-            return res.status(404).json({ error: 'Aluno não encontrado' });
-        }
+      const novoAluno = await this.alunoService.create(alunoData);
+      res.status(201).json(novoAluno);
+    } catch (error) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ 
+          error: 'Dados inválidos', 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  }
 
-        res.json(aluno);
-    });
+  async update(req, res) {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
 
-    router.post('/', async (req, res) => {
-        const novoAluno = req.body;
-        console.log('Criando novo aluno:', novoAluno);
+      const alunoAtualizado = await this.alunoService.update(parseInt(id), updateData);
+      res.json(alunoAtualizado);
+    } catch (error) {
+      if (error.message === 'Aluno não encontrado') {
+        return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  }
 
-        try {
-            const alunoCriado = await alunoService.create(novoAluno);
-            res.status(201).json(alunoCriado);
-        } catch (error) {
-            res.status(400).json({ error: error.message });
-        }
-    });
+  async delete(req, res) {
+    try {
+      const { id } = req.params;
+      await this.alunoService.delete(parseInt(id));
+      res.status(204).send();
+    } catch (error) {
+      if (error.message === 'Aluno não encontrado') {
+        return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  }
+}
 
-    router.put('/:id', async (req, res) => {
-        const id = req.params.id;
-        const novoAluno = req.body;
-
-        try {
-            const alunoAtualizado = await alunoService.update(id, novoAluno);
-
-            res.json(alunoAtualizado);
-        } catch (error) {
-            if (error.message === "Aluno não encontrado") {
-                return res.status(404).json({ error: error.message });
-            }
-            res.status(400).json({ error: error.message });
-        }
-    });
-
-    router.delete('/:id', async (req, res) => {
-        const id = req.params.id;
-
-        try {
-            await alunoService.delete(id);
-            res.status(204).send();
-        } catch (error) {
-            if (error.message === "Aluno não encontrado") {
-                return res.status(404).json({ error: error.message });
-            }
-            res.status(400).json({ error: error.message });
-        }
-    });
-
-    return router;
+// ✅ ADICIONE ESTA FUNÇÃO QUE ESTÁ FALTANDO
+export function createAlunoRouter(db, hashingService) {
+  const router = express.Router();
+  const alunoController = new AlunoController(db);
+  
+  // Aplica autenticação em todas as rotas de alunos
+  router.use(createAuthMiddleware(hashingService));
+  
+  router.get('/', (req, res) => alunoController.list(req, res));
+  router.get('/:id', (req, res) => alunoController.getById(req, res));
+  router.post('/', (req, res) => alunoController.create(req, res));
+  router.put('/:id', (req, res) => alunoController.update(req, res));
+  router.delete('/:id', (req, res) => alunoController.delete(req, res));
+  
+  return router;
 }

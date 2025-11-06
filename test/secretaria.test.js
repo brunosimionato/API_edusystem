@@ -139,4 +139,4 @@ describe('Secretaria Service', async () => {
         const secretaria = await secretariaService.getByUsuarioId(9999);
         assert.strictEqual(secretaria, null);
     });
-});
+}); 
