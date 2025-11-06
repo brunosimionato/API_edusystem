@@ -1,3 +1,4 @@
+// src/index.js - versão com debug
 import express from "express";
 import { config } from "dotenv"
 import cors from "cors";
@@ -15,6 +16,9 @@ import { createDisciplinaRouter } from "./controllers/disciplina.controller.js";
 import { createTurmaRouter } from "./controllers/turma.controller.js";
 import { createHistoricoEscolarRouter } from "./controllers/historico_escolar.controller.js";
 import { HashingService } from "./services/hashing.service.js";
+import { createNotaRouter } from './controllers/nota.controller.js';
+import { createFaltaRouter } from './controllers/falta.controller.js';
+import { createHorarioRouter } from './controllers/horario.controller.js';
 
 config()
 
@@ -37,14 +41,52 @@ app.get("/", (req, res) => {
     })
 })
 
+// 🔓 ROTA PÚBLICA SIMPLES - Vamos testar primeiro
+app.post('/public/first-user', async (req, res) => {
+    console.log('🎯 ROTA PÚBLICA ACESSADA DIRECTAMENTE!');
+    console.log('Body recebido:', req.body);
+    
+    try {
+        // Importação dinâmica para evitar problemas de ciclo
+        const { UsuarioService } = await import('./services/usuario.service.js');
+        const usuarioService = new UsuarioService(db, hashingService);
+        
+        // Verifica se já existe algum usuário
+        const usuarios = await usuarioService.list();
+        console.log(`Usuários existentes: ${usuarios.length}`);
+        
+        if (usuarios.length > 0) {
+            return res.status(403).json({ 
+                error: 'Já existem usuários no sistema. Use o login normal.' 
+            });
+        }
+
+        // Cria o usuário
+        const usuarioCriado = await usuarioService.create(req.body);
+        
+        console.log('✅ Primeiro usuário criado com sucesso!');
+        res.status(201).json({
+            message: 'Primeiro usuário criado com sucesso!',
+            usuario: usuarioCriado
+        });
+    } catch (error) {
+        console.error('❌ Erro:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Outras rotas
 app.use('/usuarios', createUsuarioRouter(db, hashingService));
+app.use('/auth', createAuthRouter(db, hashingService));
 app.use('/alunos', createAlunoRouter(db, hashingService));
 app.use('/professores', createProfessorRouter(db, hashingService));
 app.use('/secretarias', createSecretariaRouter(db, hashingService));
-app.use('/auth', createAuthRouter(db, hashingService));
 app.use('/disciplinas', createDisciplinaRouter(db, hashingService));
 app.use('/turmas', createTurmaRouter(db, hashingService));
 app.use('/historicos-escolares', createHistoricoEscolarRouter(db, hashingService));
+app.use('/notas', createNotaRouter(db, hashingService));
+app.use('/faltas', createFaltaRouter(db, hashingService));
+app.use('/horarios', createHorarioRouter(db, hashingService));
 
 app.listen(port, () => {
     console.log(`Servidor rodando na porta ${port}`);
