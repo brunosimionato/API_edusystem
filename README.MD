@@ -118,5 +118,3 @@ Deve retornar:
 **Universidade Regional Integrada do Alto Uruguai e das Missões (URI)**  
 **Câmpus Erechim – Curso de Ciência da Computação**  
 Projeto de Conclusão de Curso – 2025
-
----
