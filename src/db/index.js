@@ -1,30 +1,28 @@
-/** @typedef {import("pg").PoolClient} PoolClient */
+/** @typedef {import("pg").Pool} Pool */
 import { Pool } from "pg";
 
-
-/** @type {Pool} */
-let pool
+/** @type {Pool | null} */
+let pool = null;
 
 /**
- * Função utilizada para obter uma conexão ao banco
- * @returns {Promise<PoolClient>} 
+ * Retorna o pool de conexões do banco de dados.
+ * NÃO retorna um client aqui!
+ * @returns {Pool}
  */
-export async function get_db() {
+export function get_db() {
     if (!pool) {
         console.log("CONNECTION_STRING:", process.env.CONNECTION_STRING);
+
         pool = new Pool({
-            connectionString: process.env.CONNECTION_STRING
-        });      
+            connectionString: process.env.CONNECTION_STRING,
+        });
     }
 
-    const client = await pool.connect();
-
-    return client
+    return pool; // <-- Retorna o pool (correto!)
 }
 
 /**
- * Função utilizada para liberar a conexão ao banco
- * @returns {Promise<void>}
+ * Fecha o pool ao finalizar a aplicação
  */
 export async function cleanup() {
     if (pool) {

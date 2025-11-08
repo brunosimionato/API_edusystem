@@ -12,7 +12,9 @@ const usuarioSchema = z.object({
     nome: z.string(),
     email: z.string().email(),
     hash_senha: z.string(),
-    tipo_usuario: z.string()
+    tipo_usuario: z.string(),
+    ativo: z.boolean(),  // ✅ AGORA VALIDADO
+    created_at: z.date().optional()
 });
 
 export class NovoUsuario {
@@ -30,6 +32,7 @@ export class NovoUsuario {
         this.email = validated.email;
         this.senha = validated.senha;
         this.tipo_usuario = validated.tipo_usuario;
+        this.created_at = validated.created_at;
     }
 
     /**
@@ -52,14 +55,17 @@ export class Usuario {
      *   tipo_usuario: string
      * }} obj
      */
-    constructor(obj) {
-        const validated = usuarioSchema.parse(obj);
-        this.id = validated.id;
-        this.nome = validated.nome;
-        this.email = validated.email;
-        this.hash_senha = validated.hash_senha;
-        this.tipo_usuario = validated.tipo_usuario;
-    }
+constructor(obj) {
+    const validated = usuarioSchema.parse(obj);
+    this.id = validated.id;
+    this.nome = validated.nome;
+    this.email = validated.email;
+    this.hash_senha = validated.hash_senha;
+    this.tipo_usuario = validated.tipo_usuario;
+    this.ativo = validated.ativo;
+    this.created_at = validated.created_at ?? null; // ✅ ADICIONADO
+}
+
 
     /**
      * Cria uma instância de Usuario a partir de uma linha do banco de dados
@@ -72,7 +78,10 @@ export class Usuario {
             nome: row.nome,
             email: row.email,
             hash_senha: row.hash_senha,
-            tipo_usuario: row.tipo_usuario
+            tipo_usuario: row.tipo_usuario,
+            ativo: row.ativo,
+            created_at: row.created_at,    // ✅ TEM QUE ESTAR AQUI
+            updated_at: row.updated_at
         });
     }
 

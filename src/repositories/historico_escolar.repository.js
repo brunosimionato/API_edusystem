@@ -1,28 +1,19 @@
 import { NovoHistoricoEscolar, HistoricoEscolar } from '../entities/historico_escolar.js';
 
 export class HistoricoEscolarRepository {
-    /**
-     * @param {import('../db/index.js').PoolClient} db
-     */
+
     constructor(db) {
         this.db = db;
     }
 
-    /**
-     * Lista todos os históricos escolares
-     * @returns {Promise<HistoricoEscolar[]>}
-     */
     async list() {
-        const res = await this.db.query(
-            `SELECT * FROM historicos_escolares`
-        );
-
+        const res = await this.db.query(`SELECT * FROM historicos_escolares`);
         return res.rows.map(row => HistoricoEscolar.fromObj({
             id: row.id_historicos_escolares,
             idAluno: row.id_aluno,
             idDisciplina: row.id_disciplina,
-            nomeEscola: row.nome_escola,
-            serieConcluida: row.serie_concluida,
+            nomeEscola: row.nome_escola,      
+            serieConcluida: row.serie_concluida, 
             nota: row.nota,
             anoConclusao: row.ano_conclusao,
             createdAt: row.created_at,
@@ -30,11 +21,6 @@ export class HistoricoEscolarRepository {
         }));
     }
 
-    /**
-     * Busca um histórico escolar pelo ID
-     * @param {number} id
-     * @returns {Promise<HistoricoEscolar|null>}
-     */
     async getById(id) {
         const res = await this.db.query(
             `SELECT * FROM historicos_escolares WHERE id_historicos_escolares = $1`,
@@ -57,11 +43,6 @@ export class HistoricoEscolarRepository {
         });
     }
 
-    /**
-     * Busca históricos escolares por aluno ID
-     * @param {number} alunoId
-     * @returns {Promise<HistoricoEscolar[]>}
-     */
     async getByAlunoId(alunoId) {
         const res = await this.db.query(
             `SELECT * FROM historicos_escolares WHERE id_aluno = $1`,
@@ -81,11 +62,6 @@ export class HistoricoEscolarRepository {
         }));
     }
 
-    /**
-     * Busca históricos escolares por disciplina ID
-     * @param {number} disciplinaId
-     * @returns {Promise<HistoricoEscolar[]>}
-     */
     async getByDisciplinaId(disciplinaId) {
         const res = await this.db.query(
             `SELECT * FROM historicos_escolares WHERE id_disciplina = $1`,
@@ -105,11 +81,6 @@ export class HistoricoEscolarRepository {
         }));
     }
 
-    /**
-     * Cria um novo histórico escolar
-     * @param {NovoHistoricoEscolar} novoHistoricoEscolar
-     * @returns {Promise<HistoricoEscolar>}
-     */
     async create(novoHistoricoEscolar) {
         const res = await this.db.query(
             `INSERT INTO historicos_escolares (
@@ -119,12 +90,13 @@ export class HistoricoEscolarRepository {
                 serie_concluida,
                 nota,
                 ano_conclusao
-            ) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *`,
             [
                 novoHistoricoEscolar.idAluno,
                 novoHistoricoEscolar.idDisciplina,
-                novoHistoricoEscolar.nomeEscola,
-                novoHistoricoEscolar.serieConcluida,
+                novoHistoricoEscolar.nomeEscola,     
+                novoHistoricoEscolar.serieConcluida, 
                 novoHistoricoEscolar.nota,
                 novoHistoricoEscolar.anoConclusao
             ]
@@ -144,15 +116,10 @@ export class HistoricoEscolarRepository {
         });
     }
 
-    /**
-     * Atualiza dados do histórico escolar
-     * @param {number} id
-     * @param {Object} updateData
-     * @returns {Promise<HistoricoEscolar>}
-     */
+    // Atualizar histórico escolar
     async update(id, updateData) {
         const res = await this.db.query(
-            `UPDATE historicos_escolares SET 
+            `UPDATE historicos_escolares SET
                 id_aluno = $1,
                 id_disciplina = $2,
                 nome_escola = $3,
@@ -165,15 +132,16 @@ export class HistoricoEscolarRepository {
             [
                 updateData.idAluno,
                 updateData.idDisciplina,
-                updateData.nomeEscola,
-                updateData.serieConcluida,
+                updateData.nomeEscola,   
+                updateData.serieConcluida,  
                 updateData.nota,
                 updateData.anoConclusao,
                 id
             ]
         );
 
-        if (res.rows.length === 0) throw new Error("Histórico escolar não encontrado");
+        if (res.rows.length === 0)
+            throw new Error("Histórico escolar não encontrado");
 
         const row = res.rows[0];
         return HistoricoEscolar.fromObj({
@@ -189,13 +157,14 @@ export class HistoricoEscolarRepository {
         });
     }
 
-    /**
-     * Deleta um histórico escolar
-     * @param {number} id
-     * @returns {Promise<void>}
-     */
+    // Deletar histórico escolar
     async delete(id) {
-        const res = await this.db.query("DELETE FROM historicos_escolares WHERE id_historicos_escolares = $1", [id]);
-        if (res.rowCount === 0) throw new Error("Histórico escolar não encontrado");
+        const res = await this.db.query(
+            `DELETE FROM historicos_escolares WHERE id_historicos_escolares = $1`,
+            [id]
+        );
+
+        if (res.rowCount === 0)
+            throw new Error("Histórico escolar não encontrado");
     }
 }

@@ -19,6 +19,7 @@ import { HashingService } from "./services/hashing.service.js";
 import { createNotaRouter } from './controllers/nota.controller.js';
 import { createFaltaRouter } from './controllers/falta.controller.js';
 import { createHorarioRouter } from './controllers/horario.controller.js';
+import { createDashboardRouter } from './controllers/dashboard.controller.js';
 
 config()
 
@@ -87,6 +88,7 @@ app.use('/historicos-escolares', createHistoricoEscolarRouter(db, hashingService
 app.use('/notas', createNotaRouter(db, hashingService));
 app.use('/faltas', createFaltaRouter(db, hashingService));
 app.use('/horarios', createHorarioRouter(db, hashingService));
+app.use('/api/dashboard', createDashboardRouter(db, hashingService));
 
 app.listen(port, () => {
     console.log(`Servidor rodando na porta ${port}`);
