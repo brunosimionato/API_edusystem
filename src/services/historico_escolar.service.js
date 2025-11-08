@@ -1,13 +1,13 @@
 import { NovoHistoricoEscolar, HistoricoEscolar } from '../entities/historico_escolar.js';
+import { HistoricoEscolarRepository } from '../repositories/historico_escolar.repository.js';
 
 export class HistoricoEscolarService {
     /**
      * @param {import('../db/index.js').PoolClient} db
-     * @param {import('../repositories/historico_escolar.repository.js').HistoricoEscolarRepository} historicoEscolarRepository
      */
-    constructor(db, historicoEscolarRepository) {
+    constructor(db) {
         this.db = db;
-        this.historicoEscolarRepository = historicoEscolarRepository;
+        this.historicoEscolarRepository = new HistoricoEscolarRepository(db); // ✅ instancia aqui
     }
 
     /**
@@ -47,11 +47,12 @@ export class HistoricoEscolarService {
 
     /**
      * Cria um novo histórico escolar
-     * @param {NovoHistoricoEscolar} novoHistoricoEscolar
+     * @param {object} novoHistoricoEscolarPayload
      * @returns {Promise<HistoricoEscolar>}
      */
-    async create(novoHistoricoEscolar) {
-        return await this.historicoEscolarRepository.create(novoHistoricoEscolar);
+    async create(novoHistoricoEscolarPayload) {
+        const novoHistorico = NovoHistoricoEscolar.fromObj(novoHistoricoEscolarPayload);
+        return await this.historicoEscolarRepository.create(novoHistorico);
     }
 
     /**

@@ -35,7 +35,7 @@ export class AuthService {
         const usuario = await this.usuarioService.getByEmail(credentials.email);
 
         if (!usuario) {
-            throw new Error('Usuário não encontrado');
+            throw new Error('Email ou senha inválidos ou usuário inativo.');
         }
 
         const passwordMatch = await this.hashingService.verify(

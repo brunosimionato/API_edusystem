@@ -1,15 +1,14 @@
 CREATE TABLE usuarios (
-    id_usuarios SERIAL,
+    id_usuarios SERIAL PRIMARY KEY,
 
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    hash_senha VARCHAR(100) NOT NULL, -- por favor não deixar senhas no banco
-    tipo_usuario VARCHAR(20) NOT NULL, -- redundante?
-
+    hash_senha VARCHAR(100) NOT NULL,
+    tipo_usuario VARCHAR(20) NOT NULL,
+    ativo BOOLEAN DEFAULT true,
+    
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW(),
-
-    CONSTRAINT PK_usuarios PRIMARY KEY (id_usuarios)
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE alunos (
@@ -17,6 +16,7 @@ CREATE TABLE alunos (
 
     nome VARCHAR(150) NOT NULL,
     cns VARCHAR(20) NOT NULL,
+    cpf VARCHAR(14) UNIQUE NOT NULL,
     nascimento DATE NOT NULL,
     genero VARCHAR(20) NOT NULL,
     religiao VARCHAR(100),
@@ -333,3 +333,13 @@ CREATE TABLE ocorrencias (
     CONSTRAINT FK_ocorrencias_aluno FOREIGN KEY (id_aluno) REFERENCES alunos(id_alunos),
     CONSTRAINT FK_ocorrencias_usuario_registrador FOREIGN KEY (id_usuario_registrador) REFERENCES usuarios(id_usuarios)
 );
+
+INSERT INTO disciplinas (nome) VALUES ('Matemática');
+INSERT INTO disciplinas (nome) VALUES ('Ensino Globalizado');
+INSERT INTO disciplinas (nome) VALUES ('Português');
+INSERT INTO disciplinas (nome) VALUES ('Ciências');
+INSERT INTO disciplinas (nome) VALUES ('História');
+INSERT INTO disciplinas (nome) VALUES ('Geografia');
+INSERT INTO disciplinas (nome) VALUES ('Inglês');
+INSERT INTO disciplinas (nome) VALUES ('Arte');
+INSERT INTO disciplinas (nome) VALUES ('Educação Física');

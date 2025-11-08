@@ -19,11 +19,18 @@ export class ProfessorService {
      * Lista todos os professores
      * @returns {Promise<Professor[]>}
      */
-    async list() {
-        const professores = await this.professorRepository.list();
+async list() {
+    const professores = await this.professorRepository.list();
 
-        return Promise.all(professores.map(async (professor) => {
+    const listaCompletada = await Promise.all(
+        professores.map(async (professor) => {
             const usuario = await this.usuarioService.getById(professor.idUsuario);
+
+            // ⛔ Se o usuário estiver inativo, ignora o professor
+            if (!usuario || usuario.ativo === false) {
+                return null;
+            }
+
             const disciplinaEspecialidade = await this.disciplinaService.getById(professor.idDisciplinaEspecialidade);
 
             return {
@@ -32,8 +39,12 @@ export class ProfessorService {
                 disciplinaEspecialidade,
                 disciplinas: []
             };
-        }));
-    }
+        })
+    );
+
+    // ✅ Remove os "null" (professores cujo usuário está inativo)
+    return listaCompletada.filter(p => p !== null);
+}
 
     /**
      * Busca um professor pelo ID
