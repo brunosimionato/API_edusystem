@@ -6,112 +6,124 @@ export class FaltaRepository {
     }
 
     async list(filters = {}) {
-        let query = 'SELECT * FROM faltas WHERE 1=1';
+        let query = `
+            SELECT 
+                f.*,
+                a.nome as aluno_nome
+            FROM faltas f
+            LEFT JOIN alunos a ON f.id_aluno = a.id_alunos
+            WHERE 1=1
+        `;
         const params = [];
         let paramCount = 0;
 
-        if (filters.idAluno) {
+        if (filters.aluno_id) {
             paramCount++;
-            query += ` AND id_aluno = $${paramCount}`;
-            params.push(filters.idAluno);
+            query += ` AND f.id_aluno = $${paramCount}`;
+            params.push(filters.aluno_id);
         }
 
-        if (filters.idTurma) {
+        if (filters.data_inicio) {
             paramCount++;
-            query += ` AND id_turma = $${paramCount}`;
-            params.push(filters.idTurma);
+            query += ` AND f.data_falta >= $${paramCount}`;
+            params.push(filters.data_inicio);
         }
 
-        if (filters.data) {
+        if (filters.data_fim) {
             paramCount++;
-            query += ` AND data = $${paramCount}`;
-            params.push(filters.data);
+            query += ` AND f.data_falta <= $${paramCount}`;
+            params.push(filters.data_fim);
         }
 
-        if (filters.dataInicio && filters.dataFim) {
-            paramCount++;
-            query += ` AND data BETWEEN $${paramCount}`;
-            params.push(filters.dataInicio);
-            paramCount++;
-            query += ` AND $${paramCount}`;
-            params.push(filters.dataFim);
-        }
+        query += ' ORDER BY f.data_falta DESC, f.created_at DESC';
 
-        query += ' ORDER BY data DESC, id_aluno';
+        if (filters.page && filters.limit) {
+            const offset = (parseInt(filters.page) - 1) * parseInt(filters.limit);
+            paramCount++;
+            query += ` LIMIT $${paramCount}`;
+            params.push(parseInt(filters.limit));
+
+            paramCount++;
+            query += ` OFFSET $${paramCount}`;
+            params.push(offset);
+        }
 
         const res = await this.db.query(query, params);
-        return res.rows.map(row => Falta.fromObj({
+        return res.rows.map(row => ({
             id: row.id_faltas,
             idAluno: row.id_aluno,
-            idTurma: row.id_turma,
-            data: row.data,
+            data: row.data_falta,
             periodo: row.periodo,
-            justificada: row.justificada,
-            observacao: row.observacao,
+            aluno: {
+                id: row.id_aluno,
+                nome: row.aluno_nome
+            },
             createdAt: row.created_at,
             updatedAt: row.updated_at
         }));
     }
 
     async getById(id) {
-        const res = await this.db.query('SELECT * FROM faltas WHERE id_faltas = $1', [id]);
+        const res = await this.db.query(
+            `SELECT 
+                f.*,
+                a.nome as aluno_nome
+            FROM faltas f
+            LEFT JOIN alunos a ON f.id_aluno = a.id_alunos
+            WHERE f.id_faltas = $1`, 
+            [id]
+        );
+        
         if (res.rows.length === 0) return null;
 
         const row = res.rows[0];
-        return Falta.fromObj({
+        return {
             id: row.id_faltas,
             idAluno: row.id_aluno,
-            idTurma: row.id_turma,
-            data: row.data,
+            data: row.data_falta,
             periodo: row.periodo,
-            justificada: row.justificada,
-            observacao: row.observacao,
+            aluno: {
+                id: row.id_aluno,
+                nome: row.aluno_nome
+            },
             createdAt: row.created_at,
             updatedAt: row.updated_at
-        });
+        };
     }
 
-    async create(novaFalta) {
+    async create(dadosFalta) {
         const res = await this.db.query(
             `INSERT INTO faltas (
-                id_aluno, id_turma, data, periodo, justificada, observacao
-            ) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+                id_aluno, data_falta, periodo
+            ) VALUES ($1, $2, $3) RETURNING *`,
             [
-                novaFalta.idAluno,
-                novaFalta.idTurma,
-                novaFalta.data,
-                novaFalta.periodo,
-                novaFalta.justificada,
-                novaFalta.observacao
+                dadosFalta.idAluno,
+                dadosFalta.data,
+                dadosFalta.periodo || null
             ]
         );
 
         const row = res.rows[0];
-        return Falta.fromObj({
+        return {
             id: row.id_faltas,
             idAluno: row.id_aluno,
-            idTurma: row.id_turma,
-            data: row.data,
+            data: row.data_falta,
             periodo: row.periodo,
-            justificada: row.justificada,
-            observacao: row.observacao,
             createdAt: row.created_at,
             updatedAt: row.updated_at
-        });
+        };
     }
 
     async update(id, updateData) {
         const res = await this.db.query(
             `UPDATE faltas SET 
-                periodo = $1,
-                justificada = $2,
-                observacao = $3,
+                data_falta = COALESCE($1, data_falta),
+                periodo = COALESCE($2, periodo),
                 updated_at = NOW()
-            WHERE id_faltas = $4 RETURNING *`,
+            WHERE id_faltas = $3 RETURNING *`,
             [
+                updateData.data,
                 updateData.periodo,
-                updateData.justificada,
-                updateData.observacao,
                 id
             ]
         );
@@ -119,108 +131,178 @@ export class FaltaRepository {
         if (res.rows.length === 0) throw new Error("Falta não encontrada");
 
         const row = res.rows[0];
-        return Falta.fromObj({
+        return {
             id: row.id_faltas,
             idAluno: row.id_aluno,
-            idTurma: row.id_turma,
-            data: row.data,
+            data: row.data_falta,
             periodo: row.periodo,
-            justificada: row.justificada,
-            observacao: row.observacao,
             createdAt: row.created_at,
             updatedAt: row.updated_at
-        });
+        };
     }
 
     async delete(id) {
-        const res = await this.db.query("DELETE FROM faltas WHERE id_faltas = $1", [id]);
-        if (res.rowCount === 0) throw new Error("Falta não encontrada");
+        const res = await this.db.query(
+            "DELETE FROM faltas WHERE id_faltas = $1 RETURNING *", 
+            [id]
+        );
+        if (res.rows.length === 0) throw new Error("Falta não encontrada");
+    }
+
+    async verificarFaltaExistente(idAluno, data, periodo = null) {
+        let query = `SELECT id_faltas FROM faltas WHERE id_aluno = $1 AND data_falta = $2`;
+        const params = [idAluno, data];
+        
+        if (periodo !== null) {
+            query += ` AND periodo = $3`;
+            params.push(periodo);
+        } else {
+            query += ` AND periodo IS NULL`;
+        }
+
+        const res = await this.db.query(query, params);
+        return res.rows.length > 0;
     }
 
     async createMultiple(faltasData) {
-        const values = [];
-        const params = [];
-        let paramCount = 0;
-
-        faltasData.forEach((falta, index) => {
-            const base = index * 6;
-            values.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`);
+        const client = await this.db.connect();
+        
+        try {
+            await client.query('BEGIN');
             
-            params.push(falta.idAluno);
-            params.push(falta.idTurma);
-            params.push(falta.data);
-            params.push(falta.periodo);
-            params.push(falta.justificada);
-            params.push(falta.observacao);
-        });
-
-        const query = `
-            INSERT INTO faltas (id_aluno, id_turma, data, periodo, justificada, observacao)
-            VALUES ${values.join(', ')}
-            RETURNING *
-        `;
-
-        const res = await this.db.query(query, params);
-        return res.rows.map(row => Falta.fromObj({
-            id: row.id_faltas,
-            idAluno: row.id_aluno,
-            idTurma: row.id_turma,
-            data: row.data,
-            periodo: row.periodo,
-            justificada: row.justificada,
-            observacao: row.observacao,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
-        }));
+            const faltasInseridas = [];
+            
+            for (const falta of faltasData) {
+                const res = await client.query(
+                    `INSERT INTO faltas (id_aluno, data_falta, periodo)
+                     VALUES ($1, $2, $3) RETURNING *`,
+                    [falta.idAluno, falta.data, falta.periodo || null]
+                );
+                
+                faltasInseridas.push({
+                    id: res.rows[0].id_faltas,
+                    idAluno: res.rows[0].id_aluno,
+                    data: res.rows[0].data_falta,
+                    periodo: res.rows[0].periodo,
+                    createdAt: res.rows[0].created_at,
+                    updatedAt: res.rows[0].updated_at
+                });
+            }
+            
+            await client.query('COMMIT');
+            return faltasInseridas;
+            
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
     }
 
     async getByAlunoId(alunoId, dataInicio, dataFim) {
-        let query = 'SELECT * FROM faltas WHERE id_aluno = $1';
+        let query = `
+            SELECT 
+                f.*
+            FROM faltas f
+            WHERE f.id_aluno = $1
+        `;
         const params = [alunoId];
+        let paramCount = 1;
 
-        if (dataInicio && dataFim) {
-            params.push(dataInicio, dataFim);
-            query += ` AND data BETWEEN $2 AND $3`;
+        if (dataInicio) {
+            paramCount++;
+            query += ` AND f.data_falta >= $${paramCount}`;
+            params.push(dataInicio);
         }
 
-        query += ' ORDER BY data DESC';
+        if (dataFim) {
+            paramCount++;
+            query += ` AND f.data_falta <= $${paramCount}`;
+            params.push(dataFim);
+        }
+
+        query += ' ORDER BY f.data_falta DESC';
 
         const res = await this.db.query(query, params);
-        return res.rows.map(row => Falta.fromObj({
+        return res.rows.map(row => ({
             id: row.id_faltas,
             idAluno: row.id_aluno,
-            idTurma: row.id_turma,
-            data: row.data,
+            data: row.data_falta,
             periodo: row.periodo,
-            justificada: row.justificada,
-            observacao: row.observacao,
             createdAt: row.created_at,
             updatedAt: row.updated_at
         }));
     }
 
     async getByTurmaId(turmaId, data) {
-        let query = 'SELECT * FROM faltas WHERE id_turma = $1';
+        let query = `
+            SELECT 
+                f.*,
+                a.nome as aluno_nome
+            FROM faltas f
+            LEFT JOIN alunos a ON f.id_aluno = a.id_alunos
+            WHERE a.id_turma = $1
+        `;
         const params = [turmaId];
 
         if (data) {
             params.push(data);
-            query += ` AND data = $2`;
+            query += ` AND f.data_falta = $2`;
         }
 
-        query += ' ORDER BY data DESC, id_aluno';
+        query += ' ORDER BY f.data_falta DESC, a.nome';
 
         const res = await this.db.query(query, params);
-        return res.rows.map(row => Falta.fromObj({
+        return res.rows.map(row => ({
             id: row.id_faltas,
             idAluno: row.id_aluno,
-            idTurma: row.id_turma,
-            data: row.data,
+            data: row.data_falta,
             periodo: row.periodo,
-            justificada: row.justificada,
-            observacao: row.observacao,
+            aluno: {
+                id: row.id_aluno,
+                nome: row.aluno_nome
+            },
             createdAt: row.created_at,
             updatedAt: row.updated_at
         }));
+    }
+
+    async getEstatisticas(filters = {}) {
+        let query = `
+            SELECT 
+                COUNT(*) as total_faltas,
+                COUNT(DISTINCT id_aluno) as total_alunos
+            FROM faltas
+            WHERE 1=1
+        `;
+        const params = [];
+        let paramCount = 0;
+
+        if (filters.aluno_id) {
+            paramCount++;
+            query += ` AND id_aluno = $${paramCount}`;
+            params.push(filters.aluno_id);
+        }
+
+        if (filters.data_inicio) {
+            paramCount++;
+            query += ` AND data_falta >= $${paramCount}`;
+            params.push(filters.data_inicio);
+        }
+
+        if (filters.data_fim) {
+            paramCount++;
+            query += ` AND data_falta <= $${paramCount}`;
+            params.push(filters.data_fim);
+        }
+
+        const result = await this.db.query(query, params);
+        const estatisticas = result.rows[0];
+
+        return {
+            totalFaltas: parseInt(estatisticas.total_faltas),
+            totalAlunos: parseInt(estatisticas.total_alunos)
+        };
     }
 }

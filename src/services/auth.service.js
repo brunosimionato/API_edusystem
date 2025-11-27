@@ -22,7 +22,6 @@ export class AuthService {
         this.secretariaService = secretariaService;
     }
 
-
     /**
      * Realiza o login de um usuário
      * 
@@ -32,11 +31,19 @@ export class AuthService {
      * @throws {Error} Se as credenciais forem inválidas
      */
     async login(credentials) {
+        console.log("🔐 DEBUG BACKEND - Iniciando login para:", credentials.email);
+        
         const usuario = await this.usuarioService.getByEmail(credentials.email);
 
         if (!usuario) {
-            throw new Error('Email ou senha inválidos ou usuário inativo.');
+            throw new Error('Usuário não encontrado');
         }
+
+        console.log("✅ DEBUG BACKEND - Usuário encontrado:", {
+            id: usuario.id,
+            email: usuario.email, 
+            tipo_usuario: usuario.tipo_usuario
+        });
 
         const passwordMatch = await this.hashingService.verify(
             credentials.password,
@@ -55,16 +62,29 @@ export class AuthService {
         if (usuario.tipo_usuario === 'aluno') {
             entityService = this.alunoService;
         } else if (usuario.tipo_usuario === 'professor') {
+            console.log("🎯 DEBUG BACKEND - Buscando professor para usuarioId:", usuario.id);
+            console.log("🔍 ProfessorService disponível:", !!this.professorService);
+            
             entityService = this.professorService;
+            
+            if (this.professorService) {
+                console.log("🔍 Método getByUsuarioId disponível:", typeof this.professorService.getByUsuarioId);
+            }
         } else if (usuario.tipo_usuario === 'secretaria') {
             entityService = this.secretariaService;
         } else {
             throw new Error('Role inválida');
         }
 
+        console.log("🔍 DEBUG BACKEND - EntityService selecionado:", usuario.tipo_usuario);
+        
         const entity = await entityService.getByUsuarioId(usuario.id);
+        
+        console.log("🔍 DEBUG BACKEND - Entidade encontrada:", entity);
 
         if (!entity) {
+            console.log("❌ DEBUG BACKEND - Entidade NÃO encontrada para usuarioId:", usuario.id);
+            console.log("🔍 DEBUG BACKEND - Tipo de usuário:", usuario.tipo_usuario);
             throw new Error('Entidade não encontrada para este usuário');
         }
 
@@ -82,7 +102,7 @@ export class AuthService {
 
         const token = this.hashingService.encodeJWT(payload, '24h');
 
+        console.log("✅ DEBUG BACKEND - Login bem-sucedido, token gerado");
         return token;
     }
-    
 }

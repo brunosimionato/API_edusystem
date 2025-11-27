@@ -1,6 +1,4 @@
 import { z } from 'zod';
-
-// Added turno field (string) and kept camelCase for the others
 const novaTurmaSchema = z.object({
     nome: z.string(),
     anoEscolar: z.number().int(),
@@ -21,7 +19,6 @@ const turmaSchema = z.object({
 });
 
 export class NovaTurma {
-    // { nome, anoEscolar, quantidadeMaxima, turno, serie }
     constructor(obj) {
         const validated = novaTurmaSchema.parse(obj);
         this.nome = validated.nome;
@@ -34,7 +31,6 @@ export class NovaTurma {
 }
 
 export class Turma {
-    // { id, nome, anoEscolar, quantidadeMaxima, turno, serie, createdAt?, updatedAt? }
     constructor(obj) {
         const validated = turmaSchema.parse(obj);
         this.id = validated.id;

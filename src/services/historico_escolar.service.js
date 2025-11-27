@@ -7,7 +7,7 @@ export class HistoricoEscolarService {
      */
     constructor(db) {
         this.db = db;
-        this.historicoEscolarRepository = new HistoricoEscolarRepository(db); // ✅ instancia aqui
+        this.historicoEscolarRepository = new HistoricoEscolarRepository(db);
     }
 
     /**

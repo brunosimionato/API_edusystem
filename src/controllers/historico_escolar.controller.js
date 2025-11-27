@@ -11,7 +11,6 @@ export function createHistoricoEscolarRouter(db, hashingService) {
 
     router.use(createAuthMiddleware(hashingService));
 
-    // ✅ ROTAS ESPECÍFICAS primeiro para evitar conflito
     router.get("/aluno/:alunoId", async (req, res) => {
         const historicos = await historicoEscolarService.getByAlunoId(req.params.alunoId);
         res.json(historicos);
@@ -22,13 +21,11 @@ export function createHistoricoEscolarRouter(db, hashingService) {
         res.json(historicos);
     });
 
-    // ✅ LISTAR TODOS
     router.get("/", async (req, res) => {
         const historicos = await historicoEscolarService.list();
         res.json(historicos);
     });
 
-    // ✅ BUSCAR POR ID (colocar por último!)
     router.get("/:id", async (req, res) => {
         const historico = await historicoEscolarService.getById(req.params.id);
         if (!historico) {
@@ -37,7 +34,6 @@ export function createHistoricoEscolarRouter(db, hashingService) {
         res.json(historico);
     });
 
-    // ✅ CRIAR (apenas se usar para edição posterior)
     router.post("/", async (req, res) => {
         try {
             const novoHistorico = NovoHistoricoEscolar.fromObj(req.body);

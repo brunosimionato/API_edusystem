@@ -2,49 +2,91 @@ import { Router } from 'express';
 import { createAuthMiddleware } from './auth.middleware.js';
 
 export class HorarioController {
-    /**
-     * @param {import('../db/index.js').PoolClient} db
-     */
     constructor(db) {
         this.db = db;
     }
 
-    /**
-     * Lista todos os horários
-     */
+    // Mapeamento de números para dias da semana
+    getDiaSemanaTexto(numero) {
+        const dias = {
+            1: 'segunda',
+            2: 'terca',
+            3: 'quarta',
+            4: 'quinta',
+            5: 'sexta'
+        };
+        return dias[numero] || 'segunda';
+    }
+
+    // Mapeamento de período para horários
+    getPeriodoHorarios(periodo, turno = 'manha') {
+        const horariosManha = {
+            1: { inicio: '07:30:00', fim: '08:15:00' },
+            2: { inicio: '08:15:00', fim: '09:00:00' },
+            3: { inicio: '09:00:00', fim: '09:45:00' },
+            4: { inicio: '10:00:00', fim: '10:45:00' },
+            5: { inicio: '10:45:00', fim: '11:30:00' }
+        };
+
+        const horariosTarde = {
+            1: { inicio: '13:00:00', fim: '13:45:00' },
+            2: { inicio: '13:45:00', fim: '14:30:00' },
+            3: { inicio: '14:30:00', fim: '15:15:00' },
+            4: { inicio: '15:30:00', fim: '16:15:00' },
+            5: { inicio: '16:15:00', fim: '17:00:00' }
+        };
+
+        const horarios = turno === 'tarde' ? horariosTarde : horariosManha;
+        return horarios[periodo] || horarios[1];
+    }
+
     async list(req, res) {
         try {
-            const { disciplina_id, dia_semana, professor } = req.query;
+            const { idTurma, idProfessor, idDisciplina } = req.query;
 
             let query = `
                 SELECT 
-                    h.*,
+                    h.id_horarios_aulas as id,
+                    h.id_turma as "idTurma",
+                    h.id_disciplina as "idDisciplina",
+                    h.id_professor as "idProfessor",
+                    h.dia_semana as "diaSemana",
+                    h.horario_inicio as "horaInicio",
+                    h.horario_fim as "horaFim",
+                    h.created_at as "createdAt",
+                    h.updated_at as "updatedAt",
                     d.nome as disciplina_nome,
-                    p.nome as professor_nome
-                FROM horarios h
+                    d.id_disciplinas as disciplina_id,
+                    u.nome as usuario_nome,
+                    u.id_usuarios as usuario_id,
+                    t.nome as turma_nome,
+                    t.id_turmas as turma_id
+                FROM horarios_aulas h
                 LEFT JOIN disciplinas d ON h.id_disciplina = d.id_disciplinas
                 LEFT JOIN professores p ON h.id_professor = p.id_professores
+                LEFT JOIN usuarios u ON p.id_usuario = u.id_usuarios
+                LEFT JOIN turmas t ON h.id_turma = t.id_turmas
                 WHERE 1=1
             `;
             const params = [];
             let paramCount = 0;
 
-            if (disciplina_id) {
+            if (idTurma) {
+                paramCount++;
+                query += ` AND h.id_turma = $${paramCount}`;
+                params.push(idTurma);
+            }
+
+            if (idProfessor) {
+                paramCount++;
+                query += ` AND h.id_professor = $${paramCount}`;
+                params.push(idProfessor);
+            }
+
+            if (idDisciplina) {
                 paramCount++;
                 query += ` AND h.id_disciplina = $${paramCount}`;
-                params.push(disciplina_id);
-            }
-
-            if (dia_semana) {
-                paramCount++;
-                query += ` AND h.dia_semana = $${paramCount}`;
-                params.push(dia_semana);
-            }
-
-            if (professor) {
-                paramCount++;
-                query += ` AND p.nome ILIKE $${paramCount}`;
-                params.push(`%${professor}%`);
+                params.push(idDisciplina);
             }
 
             query += ` ORDER BY 
@@ -54,31 +96,36 @@ export class HorarioController {
                     WHEN 'quarta' THEN 3
                     WHEN 'quinta' THEN 4
                     WHEN 'sexta' THEN 5
-                    WHEN 'sabado' THEN 6
-                    WHEN 'domingo' THEN 7
                 END, 
-                h.hora_inicio`;
+                h.horario_inicio`;
 
             const result = await this.db.query(query, params);
 
             const horarios = result.rows.map(row => ({
-                id: row.id_horarios,
-                idDisciplina: row.id_disciplina,
-                idProfessor: row.id_professor,
-                diaSemana: row.dia_semana,
-                horaInicio: row.hora_inicio,
-                horaFim: row.hora_fim,
-                sala: row.sala,
+                id: row.id,
+                idTurma: row.idTurma,
+                idDisciplina: row.idDisciplina,
+                idProfessor: row.idProfessor,
+                diaSemana: this.getNumeroDiaSemana(row.diaSemana),
+                periodo: this.getPeriodoFromHorario(row.horaInicio),
+                sala: 'Sala padrão',
+                turma: {
+                    id: row.turma_id,
+                    nome: row.turma_nome
+                },
                 disciplina: {
-                    id: row.id_disciplina,
+                    id: row.disciplina_id,
                     nome: row.disciplina_nome
                 },
                 professor: {
-                    id: row.id_professor,
-                    nome: row.professor_nome
+                    id: row.idProfessor,
+                    usuario: {
+                        nome: row.usuario_nome,
+                        id: row.usuario_id
+                    }
                 },
-                createdAt: row.created_at,
-                updatedAt: row.updated_at
+                createdAt: row.createdAt,
+                updatedAt: row.updatedAt
             }));
 
             res.json(horarios);
@@ -88,22 +135,57 @@ export class HorarioController {
         }
     }
 
-    /**
-     * Obtém um horário específico por ID
-     */
+    getNumeroDiaSemana(diaTexto) {
+        const dias = {
+            'segunda': 1,
+            'terca': 2,
+            'quarta': 3,
+            'quinta': 4,
+            'sexta': 5
+        };
+        return dias[diaTexto] || 1;
+    }
+
+    getPeriodoFromHorario(horaInicio) {
+        if (!horaInicio) return 1;
+        
+        const hora = horaInicio.toString();
+        if (hora.startsWith('07:30')) return 1;
+        if (hora.startsWith('08:15')) return 2;
+        if (hora.startsWith('09:00')) return 3;
+        if (hora.startsWith('10:00')) return 4;
+        if (hora.startsWith('10:45')) return 5;
+        if (hora.startsWith('13:00')) return 1;
+        if (hora.startsWith('13:45')) return 2;
+        if (hora.startsWith('14:30')) return 3;
+        if (hora.startsWith('15:30')) return 4;
+        if (hora.startsWith('16:15')) return 5;
+        
+        return 1;
+    }
+
     async getById(req, res) {
         try {
             const { id } = req.params;
 
             const result = await this.db.query(
                 `SELECT 
-                    h.*,
+                    h.id_horarios_aulas as id,
+                    h.id_turma as "idTurma",
+                    h.id_disciplina as "idDisciplina",
+                    h.id_professor as "idProfessor",
+                    h.dia_semana as "diaSemana",
+                    h.horario_inicio as "horaInicio",
+                    h.horario_fim as "horaFim",
                     d.nome as disciplina_nome,
-                    p.nome as professor_nome
-                FROM horarios h
+                    d.id_disciplinas as disciplina_id,
+                    u.nome as usuario_nome,
+                    u.id_usuarios as usuario_id
+                FROM horarios_aulas h
                 LEFT JOIN disciplinas d ON h.id_disciplina = d.id_disciplinas
                 LEFT JOIN professores p ON h.id_professor = p.id_professores
-                WHERE h.id_horarios = $1`,
+                LEFT JOIN usuarios u ON p.id_usuario = u.id_usuarios
+                WHERE h.id_horarios_aulas = $1`,
                 [id]
             );
 
@@ -113,23 +195,24 @@ export class HorarioController {
 
             const row = result.rows[0];
             const horario = {
-                id: row.id_horarios,
-                idDisciplina: row.id_disciplina,
-                idProfessor: row.id_professor,
-                diaSemana: row.dia_semana,
-                horaInicio: row.hora_inicio,
-                horaFim: row.hora_fim,
-                sala: row.sala,
+                id: row.id,
+                idTurma: row.idTurma,
+                idDisciplina: row.idDisciplina,
+                idProfessor: row.idProfessor,
+                diaSemana: this.getNumeroDiaSemana(row.diaSemana),
+                periodo: this.getPeriodoFromHorario(row.horaInicio),
+                sala: 'Sala padrão',
                 disciplina: {
-                    id: row.id_disciplina,
+                    id: row.disciplina_id,
                     nome: row.disciplina_nome
                 },
                 professor: {
-                    id: row.id_professor,
-                    nome: row.professor_nome
-                },
-                createdAt: row.created_at,
-                updatedAt: row.updated_at
+                    id: row.idProfessor,
+                    usuario: {
+                        nome: row.usuario_nome,
+                        id: row.usuario_id
+                    }
+                }
             };
 
             res.json(horario);
@@ -139,79 +222,99 @@ export class HorarioController {
         }
     }
 
-    /**
-     * Cria um novo horário
-     */
     async create(req, res) {
         try {
-            const { idDisciplina, idProfessor, diaSemana, horaInicio, horaFim, sala } = req.body;
+            const { idTurma, idProfessor, idDisciplina, diaSemana, periodo, sala } = req.body;
 
             // Validações
-            if (!idDisciplina || !idProfessor || !diaSemana || !horaInicio || !horaFim) {
+            if (!idTurma || !idProfessor || !idDisciplina || !diaSemana || !periodo) {
                 return res.status(400).json({ 
-                    error: 'idDisciplina, idProfessor, diaSemana, horaInicio e horaFim são obrigatórios' 
+                    error: 'idTurma, idProfessor, idDisciplina, diaSemana e periodo são obrigatórios' 
                 });
             }
 
-            // Valida formato do horário
-            const horaRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-            if (!horaRegex.test(horaInicio) || !horaRegex.test(horaFim)) {
-                return res.status(400).json({ 
-                    error: 'Formato de horário inválido. Use HH:MM' 
-                });
-            }
-
-            // Valida dia da semana
-            const diasValidos = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'];
-            if (!diasValidos.includes(diaSemana.toLowerCase())) {
-                return res.status(400).json({ 
-                    error: 'Dia da semana inválido. Use: segunda, terca, quarta, quinta, sexta, sabado, domingo' 
-                });
-            }
-
-            // Verifica conflito de horário
-            const conflitoResult = await this.db.query(
-                `SELECT * FROM horarios 
-                WHERE dia_semana = $1 
-                AND id_professor = $2
-                AND (
-                    (hora_inicio <= $3 AND hora_fim > $3) OR
-                    (hora_inicio < $4 AND hora_fim >= $4) OR
-                    (hora_inicio >= $3 AND hora_fim <= $4)
-                )`,
-                [diaSemana, idProfessor, horaInicio, horaFim]
+            // Buscar turno da turma para determinar horários corretos
+            const turmaResult = await this.db.query(
+                'SELECT turno FROM turmas WHERE id_turmas = $1',
+                [idTurma]
             );
 
-            if (conflitoResult.rows.length > 0) {
-                return res.status(409).json({ 
-                    error: 'Conflito de horário para este professor' 
-                });
-            }
+            const turno = turmaResult.rows[0]?.turno || 'manha';
+            
+            // Converter número do dia para texto
+            const diaSemanaTexto = this.getDiaSemanaTexto(diaSemana);
+            
+            // Obter horários baseado no período e turno
+            const horarios = this.getPeriodoHorarios(periodo, turno.toLowerCase());
 
             const result = await this.db.query(
-                `INSERT INTO horarios (
-                    id_disciplina, 
+                `INSERT INTO horarios_aulas (
+                    id_turma, 
+                    id_disciplina,
                     id_professor, 
                     dia_semana, 
-                    hora_inicio, 
-                    hora_fim, 
-                    sala
+                    horario_inicio, 
+                    horario_fim
                 ) VALUES ($1, $2, $3, $4, $5, $6) 
-                RETURNING *`,
-                [idDisciplina, idProfessor, diaSemana, horaInicio, horaFim, sala]
+                RETURNING 
+                    id_horarios_aulas as id,
+                    id_turma as "idTurma",
+                    id_disciplina as "idDisciplina",
+                    id_professor as "idProfessor",
+                    dia_semana as "diaSemana",
+                    horario_inicio as "horaInicio",
+                    horario_fim as "horaFim",
+                    created_at as "createdAt",
+                    updated_at as "updatedAt"`,
+                [idTurma, idDisciplina, idProfessor, diaSemanaTexto, horarios.inicio, horarios.fim]
             );
 
             const novoHorario = result.rows[0];
+            
+            // Buscar dados relacionados
+            const detalhesResult = await this.db.query(
+                `SELECT 
+                    d.nome as disciplina_nome,
+                    d.id_disciplinas as disciplina_id,
+                    u.nome as usuario_nome,
+                    u.id_usuarios as usuario_id,
+                    t.nome as turma_nome,
+                    t.id_turmas as turma_id
+                FROM disciplinas d, professores p, usuarios u, turmas t
+                WHERE d.id_disciplinas = $1
+                AND p.id_professores = $2
+                AND p.id_usuario = u.id_usuarios
+                AND t.id_turmas = $3`,
+                [idDisciplina, idProfessor, idTurma]
+            );
+
+            const detalhes = detalhesResult.rows[0] || {};
+
             res.status(201).json({
-                id: novoHorario.id_horarios,
-                idDisciplina: novoHorario.id_disciplina,
-                idProfessor: novoHorario.id_professor,
-                diaSemana: novoHorario.dia_semana,
-                horaInicio: novoHorario.hora_inicio,
-                horaFim: novoHorario.hora_fim,
-                sala: novoHorario.sala,
-                createdAt: novoHorario.created_at,
-                updatedAt: novoHorario.updated_at
+                id: novoHorario.id,
+                idTurma: novoHorario.idTurma,
+                idDisciplina: novoHorario.idDisciplina,
+                idProfessor: novoHorario.idProfessor,
+                diaSemana: diaSemana,
+                periodo: periodo,
+                sala: sala || 'Sala padrão',
+                turma: {
+                    id: detalhes.turma_id,
+                    nome: detalhes.turma_nome
+                },
+                disciplina: {
+                    id: detalhes.disciplina_id,
+                    nome: detalhes.disciplina_nome
+                },
+                professor: {
+                    id: idProfessor,
+                    usuario: {
+                        nome: detalhes.usuario_nome,
+                        id: detalhes.usuario_id
+                    }
+                },
+                createdAt: novoHorario.createdAt,
+                updatedAt: novoHorario.updatedAt
             });
         } catch (error) {
             console.error('Erro ao criar horário:', error);
@@ -219,41 +322,98 @@ export class HorarioController {
         }
     }
 
-    /**
-     * Atualiza um horário existente
-     */
     async update(req, res) {
         try {
             const { id } = req.params;
-            const { diaSemana, horaInicio, horaFim, sala } = req.body;
+            const { idDisciplina, idProfessor, diaSemana, periodo } = req.body;
 
-            const result = await this.db.query(
-                `UPDATE horarios SET 
-                    dia_semana = COALESCE($1, dia_semana),
-                    hora_inicio = COALESCE($2, hora_inicio),
-                    hora_fim = COALESCE($3, hora_fim),
-                    sala = COALESCE($4, sala),
-                    updated_at = NOW()
-                WHERE id_horarios = $5
-                RETURNING *`,
-                [diaSemana, horaInicio, horaFim, sala, id]
+            // Buscar horário existente para pegar a turma
+            const horarioExistente = await this.db.query(
+                'SELECT id_turma FROM horarios_aulas WHERE id_horarios_aulas = $1',
+                [id]
             );
 
-            if (result.rows.length === 0) {
+            if (horarioExistente.rows.length === 0) {
                 return res.status(404).json({ error: 'Horário não encontrado' });
             }
 
+            const idTurma = horarioExistente.rows[0].id_turma;
+
+            // Buscar turno da turma
+            const turmaResult = await this.db.query(
+                'SELECT turno FROM turmas WHERE id_turmas = $1',
+                [idTurma]
+            );
+
+            const turno = turmaResult.rows[0]?.turno || 'manha';
+
+            let updateFields = [];
+            let params = [];
+            let paramCount = 0;
+
+            if (idDisciplina) {
+                paramCount++;
+                updateFields.push(`id_disciplina = $${paramCount}`);
+                params.push(idDisciplina);
+            }
+
+            if (idProfessor) {
+                paramCount++;
+                updateFields.push(`id_professor = $${paramCount}`);
+                params.push(idProfessor);
+            }
+
+            if (diaSemana) {
+                paramCount++;
+                const diaSemanaTexto = this.getDiaSemanaTexto(diaSemana);
+                updateFields.push(`dia_semana = $${paramCount}`);
+                params.push(diaSemanaTexto);
+            }
+
+            if (periodo) {
+                const horarios = this.getPeriodoHorarios(periodo, turno.toLowerCase());
+                paramCount++;
+                updateFields.push(`horario_inicio = $${paramCount}`);
+                params.push(horarios.inicio);
+                
+                paramCount++;
+                updateFields.push(`horario_fim = $${paramCount}`);
+                params.push(horarios.fim);
+            }
+
+            if (updateFields.length === 0) {
+                return res.status(400).json({ error: 'Nenhum campo para atualizar' });
+            }
+
+            updateFields.push('updated_at = NOW()');
+            paramCount++;
+            params.push(id);
+
+            const query = `
+                UPDATE horarios_aulas 
+                SET ${updateFields.join(', ')}
+                WHERE id_horarios_aulas = $${paramCount}
+                RETURNING 
+                    id_horarios_aulas as id,
+                    id_turma as "idTurma",
+                    id_disciplina as "idDisciplina",
+                    id_professor as "idProfessor",
+                    dia_semana as "diaSemana",
+                    horario_inicio as "horaInicio",
+                    horario_fim as "horaFim"
+            `;
+
+            const result = await this.db.query(query, params);
             const horarioAtualizado = result.rows[0];
+
             res.json({
-                id: horarioAtualizado.id_horarios,
-                idDisciplina: horarioAtualizado.id_disciplina,
-                idProfessor: horarioAtualizado.id_professor,
-                diaSemana: horarioAtualizado.dia_semana,
-                horaInicio: horarioAtualizado.hora_inicio,
-                horaFim: horarioAtualizado.hora_fim,
-                sala: horarioAtualizado.sala,
-                createdAt: horarioAtualizado.created_at,
-                updatedAt: horarioAtualizado.updated_at
+                id: horarioAtualizado.id,
+                idTurma: horarioAtualizado.idTurma,
+                idDisciplina: horarioAtualizado.idDisciplina,
+                idProfessor: horarioAtualizado.idProfessor,
+                diaSemana: this.getNumeroDiaSemana(horarioAtualizado.diaSemana),
+                periodo: this.getPeriodoFromHorario(horarioAtualizado.horaInicio),
+                sala: 'Sala padrão'
             });
         } catch (error) {
             console.error('Erro ao atualizar horário:', error);
@@ -261,15 +421,12 @@ export class HorarioController {
         }
     }
 
-    /**
-     * Remove um horário
-     */
     async delete(req, res) {
         try {
             const { id } = req.params;
 
             const result = await this.db.query(
-                'DELETE FROM horarios WHERE id_horarios = $1 RETURNING *',
+                'DELETE FROM horarios_aulas WHERE id_horarios_aulas = $1 RETURNING *',
                 [id]
             );
 
@@ -283,176 +440,8 @@ export class HorarioController {
             res.status(500).json({ error: error.message });
         }
     }
-
-    /**
-     * Obtém horários por disciplina
-     */
-    async getByDisciplina(req, res) {
-        try {
-            const { disciplinaId } = req.params;
-
-            const result = await this.db.query(
-                `SELECT 
-                    h.*,
-                    p.nome as professor_nome
-                FROM horarios h
-                LEFT JOIN professores p ON h.id_professor = p.id_professores
-                WHERE h.id_disciplina = $1
-                ORDER BY 
-                    CASE h.dia_semana 
-                        WHEN 'segunda' THEN 1
-                        WHEN 'terca' THEN 2
-                        WHEN 'quarta' THEN 3
-                        WHEN 'quinta' THEN 4
-                        WHEN 'sexta' THEN 5
-                        WHEN 'sabado' THEN 6
-                        WHEN 'domingo' THEN 7
-                    END, 
-                    h.hora_inicio`,
-                [disciplinaId]
-            );
-
-            const horarios = result.rows.map(row => ({
-                id: row.id_horarios,
-                idDisciplina: row.id_disciplina,
-                idProfessor: row.id_professor,
-                diaSemana: row.dia_semana,
-                horaInicio: row.hora_inicio,
-                horaFim: row.hora_fim,
-                sala: row.sala,
-                professor: {
-                    id: row.id_professor,
-                    nome: row.professor_nome
-                },
-                createdAt: row.created_at,
-                updatedAt: row.updated_at
-            }));
-
-            res.json(horarios);
-        } catch (error) {
-            console.error('Erro ao obter horários por disciplina:', error);
-            res.status(500).json({ error: error.message });
-        }
-    }
-
-    /**
-     * Obtém grade horária por dia
-     */
-    async getByDia(req, res) {
-        try {
-            const { dia } = req.params;
-
-            const result = await this.db.query(
-                `SELECT 
-                    h.*,
-                    d.nome as disciplina_nome,
-                    p.nome as professor_nome
-                FROM horarios h
-                LEFT JOIN disciplinas d ON h.id_disciplina = d.id_disciplinas
-                LEFT JOIN professores p ON h.id_professor = p.id_professores
-                WHERE h.dia_semana = $1
-                ORDER BY h.hora_inicio`,
-                [dia]
-            );
-
-            const horarios = result.rows.map(row => ({
-                id: row.id_horarios,
-                idDisciplina: row.id_disciplina,
-                idProfessor: row.id_professor,
-                diaSemana: row.dia_semana,
-                horaInicio: row.hora_inicio,
-                horaFim: row.hora_fim,
-                sala: row.sala,
-                disciplina: {
-                    id: row.id_disciplina,
-                    nome: row.disciplina_nome
-                },
-                professor: {
-                    id: row.id_professor,
-                    nome: row.professor_nome
-                },
-                createdAt: row.created_at,
-                updatedAt: row.updated_at
-            }));
-
-            res.json(horarios);
-        } catch (error) {
-            console.error('Erro ao obter horários por dia:', error);
-            res.status(500).json({ error: error.message });
-        }
-    }
-
-    /**
-     * Obtém grade horária completa
-     */
-    async getGradeCompleta(req, res) {
-        try {
-            const result = await this.db.query(
-                `SELECT 
-                    h.*,
-                    d.nome as disciplina_nome,
-                    p.nome as professor_nome
-                FROM horarios h
-                LEFT JOIN disciplinas d ON h.id_disciplina = d.id_disciplinas
-                LEFT JOIN professores p ON h.id_professor = p.id_professores
-                ORDER BY 
-                    CASE h.dia_semana 
-                        WHEN 'segunda' THEN 1
-                        WHEN 'terca' THEN 2
-                        WHEN 'quarta' THEN 3
-                        WHEN 'quinta' THEN 4
-                        WHEN 'sexta' THEN 5
-                        WHEN 'sabado' THEN 6
-                        WHEN 'domingo' THEN 7
-                    END, 
-                    h.hora_inicio`
-            );
-
-            const grade = {
-                segunda: [],
-                terca: [],
-                quarta: [],
-                quinta: [],
-                sexta: [],
-                sabado: [],
-                domingo: []
-            };
-
-            result.rows.forEach(row => {
-                const horario = {
-                    id: row.id_horarios,
-                    idDisciplina: row.id_disciplina,
-                    idProfessor: row.id_professor,
-                    diaSemana: row.dia_semana,
-                    horaInicio: row.hora_inicio,
-                    horaFim: row.hora_fim,
-                    sala: row.sala,
-                    disciplina: {
-                        id: row.id_disciplina,
-                        nome: row.disciplina_nome
-                    },
-                    professor: {
-                        id: row.id_professor,
-                        nome: row.professor_nome
-                    }
-                };
-
-                if (grade[row.dia_semana]) {
-                    grade[row.dia_semana].push(horario);
-                }
-            });
-
-            res.json(grade);
-        } catch (error) {
-            console.error('Erro ao obter grade completa:', error);
-            res.status(500).json({ error: error.message });
-        }
-    }
 }
 
-/**
- * Cria e retorna um router de horários
- */
 export function createHorarioRouter(db, hashingService) {
     const horarioController = new HorarioController(db);
     const router = Router();
@@ -460,9 +449,6 @@ export function createHorarioRouter(db, hashingService) {
     router.use(createAuthMiddleware(hashingService));
 
     router.get('/', (req, res) => horarioController.list(req, res));
-    router.get('/grade-completa', (req, res) => horarioController.getGradeCompleta(req, res));
-    router.get('/disciplina/:disciplinaId', (req, res) => horarioController.getByDisciplina(req, res));
-    router.get('/dia/:dia', (req, res) => horarioController.getByDia(req, res));
     router.get('/:id', (req, res) => horarioController.getById(req, res));
     router.post('/', (req, res) => horarioController.create(req, res));
     router.put('/:id', (req, res) => horarioController.update(req, res));

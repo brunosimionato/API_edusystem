@@ -13,7 +13,7 @@ const usuarioSchema = z.object({
     email: z.string().email(),
     hash_senha: z.string(),
     tipo_usuario: z.string(),
-    ativo: z.boolean(),  // ✅ AGORA VALIDADO
+    ativo: z.boolean(),
     created_at: z.date().optional()
 });
 
@@ -68,9 +68,9 @@ constructor(obj) {
 
 
     /**
-     * Cria uma instância de Usuario a partir de uma linha do banco de dados
-     * @param {Object} row - A linha do banco de dados
-     * @return {Usuario} Uma instância de Usuario
+     * 
+     * @param {Object} row 
+     * @return {Usuario}
      */
     static fromRow(row) {
         return new Usuario({
@@ -80,13 +80,12 @@ constructor(obj) {
             hash_senha: row.hash_senha,
             tipo_usuario: row.tipo_usuario,
             ativo: row.ativo,
-            created_at: row.created_at,    // ✅ TEM QUE ESTAR AQUI
+            created_at: row.created_at, 
             updated_at: row.updated_at
         });
     }
 
     /**
-     * Cria uma instância de Usuario a partir de um objeto
      * @param {Object} obj
      * @returns {Usuario}
      */

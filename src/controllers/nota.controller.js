@@ -1,4 +1,3 @@
-// src/controllers/nota.controller.js - NOVO
 import { Router } from 'express';
 import { NotaService } from '../services/nota.service.js';
 import { createAuthMiddleware } from './auth.middleware.js';
@@ -9,6 +8,7 @@ export function createNotaRouter(db, hashingService) {
 
     router.use(createAuthMiddleware(hashingService));
 
+    // Rotas básicas CRUD
     router.get('/', async (req, res) => {
         try {
             const filters = req.query;
@@ -62,6 +62,100 @@ export function createNotaRouter(db, hashingService) {
                 return res.status(404).json({ error: error.message });
             }
             res.status(400).json({ error: error.message });
+        }
+    });
+
+    // NOVAS ROTAS PARA RELATÓRIOS E CONSULTAS
+
+    // Médias trimestrais de um aluno
+    router.get('/aluno/:idAluno/medias', async (req, res) => {
+        try {
+            const { idAluno } = req.params;
+            const { anoLetivo } = req.query;
+            
+            if (!anoLetivo) {
+                return res.status(400).json({ error: 'Ano letivo é obrigatório' });
+            }
+
+            const medias = await notaService.getMediasTrimestrais(idAluno, anoLetivo);
+            res.json(medias);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Situação final de um aluno (aprovado/reprovado)
+    router.get('/aluno/:idAluno/situacao', async (req, res) => {
+        try {
+            const { idAluno } = req.params;
+            const { anoLetivo } = req.query;
+            
+            if (!anoLetivo) {
+                return res.status(400).json({ error: 'Ano letivo é obrigatório' });
+            }
+
+            const situacao = await notaService.getSituacaoFinal(idAluno, anoLetivo);
+            res.json(situacao);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Notas por turma (para professores)
+    router.get('/turma/:idTurma/notas', async (req, res) => {
+        try {
+            const { idTurma } = req.params;
+            const { anoLetivo, trimestre } = req.query;
+            
+            if (!anoLetivo || !trimestre) {
+                return res.status(400).json({ 
+                    error: 'Ano letivo e trimestre são obrigatórios' 
+                });
+            }
+
+            const notas = await notaService.getNotasPorTurma(idTurma, anoLetivo, trimestre);
+            res.json(notas);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Boletim completo do aluno
+    router.get('/aluno/:idAluno/boletim', async (req, res) => {
+        try {
+            const { idAluno } = req.params;
+            const { anoLetivo } = req.query;
+            
+            if (!anoLetivo) {
+                return res.status(400).json({ error: 'Ano letivo é obrigatório' });
+            }
+
+            const boletim = await notaService.getBoletimCompleto(idAluno, anoLetivo);
+            res.json(boletim);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Estatísticas da turma
+    router.get('/turma/:idTurma/estatisticas', async (req, res) => {
+        try {
+            const { idTurma } = req.params;
+            const { anoLetivo, trimestre, idDisciplina } = req.query;
+            
+            if (!anoLetivo) {
+                return res.status(400).json({ error: 'Ano letivo é obrigatório' });
+            }
+
+            const estatisticas = await notaService.getEstatisticasTurma(
+                idTurma, 
+                anoLetivo, 
+                trimestre, 
+                idDisciplina
+            );
+            res.json(estatisticas);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
         }
     });
 

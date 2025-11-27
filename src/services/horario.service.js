@@ -7,53 +7,123 @@ export class HorarioService {
     }
 
     async list(filters = {}) {
-        return await this.horarioRepository.list(filters);
+        try {
+            return await this.horarioRepository.list(filters);
+        } catch (error) {
+            console.error('Erro ao listar horários:', error);
+            throw new Error('Erro ao buscar horários: ' + error.message);
+        }
     }
 
     async getById(id) {
-        return await this.horarioRepository.getById(id);
+        try {
+            const horario = await this.horarioRepository.getById(id);
+            if (!horario) {
+                throw new Error('Horário não encontrado');
+            }
+            return horario;
+        } catch (error) {
+            console.error('Erro ao buscar horário:', error);
+            throw new Error('Erro ao buscar horário: ' + error.message);
+        }
     }
 
-    async create(novoHorario) {
-        // Verificar conflito antes de criar
-        const hasConflito = await this.horarioRepository.hasConflito(novoHorario);
-        if (hasConflito) {
-            throw new Error('Conflito de horário detectado. Já existe um horário para este professor no mesmo dia e período.');
+    async create(horarioData) {
+        try {
+            const novoHorario = new NovoHorario(horarioData);
+            
+            return await this.horarioRepository.create(novoHorario);
+        } catch (error) {
+            console.error('Erro ao criar horário:', error);
+            
+            if (error.message.includes('ZodError') || error.message.includes('validation')) {
+                throw error;
+            }
+            
+            throw new Error('Erro ao criar horário: ' + error.message);
         }
-
-        return await this.horarioRepository.create(novoHorario);
     }
 
     async update(id, updateData) {
-        // Verificar conflito antes de atualizar
-        const hasConflito = await this.horarioRepository.hasConflito({
-            ...updateData,
-            id
-        });
-        if (hasConflito) {
-            throw new Error('Conflito de horário detectado. Já existe um horário para este professor no mesmo dia e período.');
-        }
+        try {
+            // Verificar se o horário existe
+            const horarioExistente = await this.horarioRepository.getById(id);
+            if (!horarioExistente) {
+                throw new Error('Horário não encontrado');
+            }
 
-        return await this.horarioRepository.update(id, updateData);
+            // REMOVIDO: Verificação de conflito
+            // Atualizar diretamente sem verificar conflitos
+            return await this.horarioRepository.update(id, updateData);
+        } catch (error) {
+            console.error('Erro ao atualizar horário:', error);
+            
+            // Se for erro de validação, manter a mensagem original
+            if (error.message.includes('ZodError') || error.message.includes('validation')) {
+                throw error;
+            }
+            
+            throw new Error('Erro ao atualizar horário: ' + error.message);
+        }
     }
 
     async delete(id) {
-        await this.horarioRepository.delete(id);
+        try {
+            // Verificar se o horário existe antes de deletar
+            const horarioExistente = await this.horarioRepository.getById(id);
+            if (!horarioExistente) {
+                throw new Error('Horário não encontrado');
+            }
+
+            await this.horarioRepository.delete(id);
+        } catch (error) {
+            console.error('Erro ao deletar horário:', error);
+            throw new Error('Erro ao deletar horário: ' + error.message);
+        }
     }
 
     async getByTurmaId(turmaId) {
-        return await this.horarioRepository.getByTurmaId(turmaId);
+        try {
+            if (!turmaId) {
+                throw new Error('ID da turma é obrigatório');
+            }
+            return await this.horarioRepository.getByTurmaId(turmaId);
+        } catch (error) {
+            console.error('Erro ao buscar horários da turma:', error);
+            throw new Error('Erro ao buscar horários da turma: ' + error.message);
+        }
     }
 
     async getByProfessorId(professorId) {
-        return await this.horarioRepository.getByProfessorId(professorId);
+        try {
+            if (!professorId) {
+                throw new Error('ID do professor é obrigatório');
+            }
+            return await this.horarioRepository.getByProfessorId(professorId);
+        } catch (error) {
+            console.error('Erro ao buscar horários do professor:', error);
+            throw new Error('Erro ao buscar horários do professor: ' + error.message);
+        }
     }
 
     async getGradeHorarios(turmaId) {
-        return await this.horarioRepository.getGradeHorarios(turmaId);
+        try {
+            if (!turmaId) {
+                throw new Error('ID da turma é obrigatório');
+            }
+            return await this.horarioRepository.getGradeHorarios(turmaId);
+        } catch (error) {
+            console.error('Erro ao buscar grade de horários:', error);
+            throw new Error('Erro ao buscar grade de horários: ' + error.message);
+        }
     }
 
-    async hasConflito(horarioData) {
-        return await this.horarioRepository.hasConflito(horarioData);
+    async buscarHorarios(filters = {}) {
+        try {
+            return await this.horarioRepository.list(filters);
+        } catch (error) {
+            console.error('Erro ao buscar horários com filtros:', error);
+            throw new Error('Erro ao buscar horários: ' + error.message);
+        }
     }
 }

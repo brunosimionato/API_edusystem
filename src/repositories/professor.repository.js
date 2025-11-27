@@ -1,47 +1,42 @@
 import { NovoProfessor, Professor } from '../entities/professor.js';
 
 export class ProfessorRepository {
-    /**
-     * @param {import('../db/index.js').PoolClient} db
-     */
     constructor(db) {
         this.db = db;
     }
 
-    /**
-     * Lista todos os professores
-     * @returns {Promise<Professor[]>}
-     */
+    // LISTA
     async list() {
-        const res = await this.db.query(
-            `SELECT * FROM professores`
-        );
+        const res = await this.db.query(`
+        SELECT p.* 
+        FROM professores p
+        INNER JOIN usuarios u ON p.id_usuario = u.id_usuarios
+        WHERE u.ativo = true
+    `);
 
-        return res.rows.map(row => Professor.fromObj({
-            id: row.id_professores,
-            idUsuario: row.id_usuario,
-            idDisciplinaEspecialidade: row.id_disciplina_especialidade,
-            telefone: row.telefone,
-            genero: row.genero,
-            cpf: row.cpf,
-            nascimento: row.nascimento,
-            logradouro: row.logradouro,
-            numero: row.numero,
-            bairro: row.bairro,
-            cep: row.cep,
-            cidade: row.cidade,
-            estado: row.estado,
-            formacaoAcademica: row.formacao_academica,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
-        }));
+        return res.rows.map(row =>
+            Professor.fromObj({
+                id: row.id_professores,
+                idUsuario: row.id_usuario,
+                idDisciplinaEspecialidade: row.id_disciplina_especialidade,
+                telefone: row.telefone,
+                genero: row.genero,
+                cpf: row.cpf,
+                nascimento: row.nascimento,
+                logradouro: row.logradouro,
+                numero: row.numero,
+                bairro: row.bairro,
+                cep: row.cep,
+                cidade: row.cidade,
+                estado: row.estado,
+                formacaoAcademica: row.formacao_academica,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            })
+        );
     }
 
-    /**
-     * Busca um professor pelo ID
-     * @param {number} id
-     * @returns {Promise<Professor|null>}
-     */
+    // GET BY ID
     async getById(id) {
         const res = await this.db.query(
             `SELECT * FROM professores WHERE id_professores = $1`,
@@ -51,6 +46,7 @@ export class ProfessorRepository {
         if (res.rows.length === 0) return null;
 
         const row = res.rows[0];
+
         return Professor.fromObj({
             id: row.id_professores,
             idUsuario: row.id_usuario,
@@ -71,20 +67,21 @@ export class ProfessorRepository {
         });
     }
 
-    /**
-     * Busca um professor pelo usuario_id
-     * @param {number} usuarioId
-     * @returns {Promise<Professor|null>}
-     */
+
+    // GET BY ID USUÁRIO
     async getByUsuarioId(usuarioId) {
+
         const res = await this.db.query(
             `SELECT * FROM professores WHERE id_usuario = $1`,
             [usuarioId]
         );
 
-        if (res.rows.length === 0) return null;
+        if (res.rows.length === 0) {
+            return null;
+        }
 
         const row = res.rows[0];
+
         return Professor.fromObj({
             id: row.id_professores,
             idUsuario: row.id_usuario,
@@ -105,11 +102,7 @@ export class ProfessorRepository {
         });
     }
 
-    /**
-     * Cria um novo professor (usando IDs de usuario e disciplina existentes)
-     * @param {NovoProfessor} novoProfessor
-     * @returns {Promise<Professor>}
-     */
+    // CREATE
     async create(novoProfessor) {
         const res = await this.db.query(
             `INSERT INTO professores (
@@ -126,7 +119,8 @@ export class ProfessorRepository {
                 cidade,
                 estado,
                 formacao_academica
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            RETURNING *`,
             [
                 novoProfessor.idUsuario,
                 novoProfessor.idDisciplinaEspecialidade,
@@ -145,6 +139,7 @@ export class ProfessorRepository {
         );
 
         const row = res.rows[0];
+
         return Professor.fromObj({
             id: row.id_professores,
             idUsuario: row.id_usuario,
@@ -165,13 +160,9 @@ export class ProfessorRepository {
         });
     }
 
-    /**
-     * Atualiza dados do professor
-     * @param {number} id
-     * @param {Object} updateData
-     * @returns {Promise<Professor>}
-     */
-    async update(id, updateData) {
+    
+    // UPDATE
+    async update(id, data) {
         const res = await this.db.query(
             `UPDATE professores SET 
                 id_disciplina_especialidade = $1,
@@ -190,25 +181,26 @@ export class ProfessorRepository {
             WHERE id_professores = $13
             RETURNING *`,
             [
-                updateData.idDisciplinaEspecialidade,
-                updateData.telefone,
-                updateData.genero,
-                updateData.cpf,
-                updateData.nascimento,
-                updateData.logradouro,
-                updateData.numero,
-                updateData.bairro,
-                updateData.cep,
-                updateData.cidade,
-                updateData.estado,
-                updateData.formacaoAcademica,
+                data.idDisciplinaEspecialidade,
+                data.telefone,
+                data.genero,
+                data.cpf,
+                data.nascimento,
+                data.logradouro,
+                data.numero,
+                data.bairro,
+                data.cep,
+                data.cidade,
+                data.estado,
+                data.formacaoAcademica,
                 id
             ]
         );
 
-        if (res.rows.length === 0) throw new Error("Professor não encontrado");
+        if (res.rows.length === 0) return null;
 
         const row = res.rows[0];
+
         return Professor.fromObj({
             id: row.id_professores,
             idUsuario: row.id_usuario,
@@ -229,23 +221,59 @@ export class ProfessorRepository {
         });
     }
 
-    /**
-     * Deleta um professor
-     * @param {number} id
-     * @returns {Promise<void>}
-     */
-    async delete(id) {
-        // Busca professor para pegar id_usuario
-        const profRes = await this.db.query(
-            "SELECT id_usuario FROM professores WHERE id_professores = $1",
-            [id]
-        );
-        if (profRes.rows.length === 0) throw new Error("Professor não encontrado");
-        const usuario_id = profRes.rows[0].id_usuario;
 
-        // Deleta professor
-        await this.db.query("DELETE FROM professores WHERE id_professores = $1", [id]);
-        // Deleta usuário
-        await this.db.query("DELETE FROM usuarios WHERE id_usuarios = $1", [usuario_id]);
+    // DISCIPLINAS
+    async getProfessorDisciplinas(idProfessor) {
+        const res = await this.db.query(
+            `SELECT d.id_disciplinas AS id, d.nome
+             FROM professores_disciplinas pd
+             JOIN disciplinas d ON d.id_disciplinas = pd.id_disciplina
+             WHERE pd.id_professor = $1`,
+            [idProfessor]
+        );
+        return res.rows;
+    }
+
+    async saveProfessorDisciplinas(idProfessor, idsDisciplinas) {
+        await this.db.query(
+            `DELETE FROM professores_disciplinas WHERE id_professor = $1`,
+            [idProfessor]
+        );
+
+        for (const idDisc of idsDisciplinas) {
+            await this.db.query(
+                `INSERT INTO professores_disciplinas (id_professor, id_disciplina)
+                 VALUES ($1, $2)`,
+                [idProfessor, idDisc]
+            );
+        }
+    }
+
+    
+    // TURMAS
+    async getProfessorTurmas(idProfessor) {
+        const res = await this.db.query(
+            `SELECT t.id_turmas AS id, t.nome
+             FROM professores_turmas pt
+             JOIN turmas t ON t.id_turmas = pt.id_turma
+             WHERE pt.id_professor = $1`,
+            [idProfessor]
+        );
+        return res.rows;
+    }
+
+    async saveProfessorTurmas(idProfessor, idsTurmas) {
+        await this.db.query(
+            `DELETE FROM professores_turmas WHERE id_professor = $1`,
+            [idProfessor]
+        );
+
+        for (const idTurma of idsTurmas) {
+            await this.db.query(
+                `INSERT INTO professores_turmas (id_professor, id_turma)
+                 VALUES ($1, $2)`,
+                [idProfessor, idTurma]
+            );
+        }
     }
 }

@@ -26,8 +26,8 @@ export class NovoHistoricoEscolar {
         const validated = novoHistoricoEscolarSchema.parse({
             idAluno: obj.idAluno,
             idDisciplina: obj.idDisciplina ?? null,
-            nomeEscola: obj.nomeEscola ?? obj.escolaAnterior,      // ✅ fallback
-            serieConcluida: obj.serieConcluida ?? obj.serieAnterior, // ✅ fallback
+            nomeEscola: obj.nomeEscola ?? obj.escolaAnterior,
+            serieConcluida: obj.serieConcluida ?? obj.serieAnterior,
             nota: obj.nota,
             anoConclusao: obj.anoConclusao
         });

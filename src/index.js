@@ -1,4 +1,3 @@
-// src/index.js - versão com debug
 import express from "express";
 import { config } from "dotenv"
 import cors from "cors";
@@ -20,6 +19,8 @@ import { createNotaRouter } from './controllers/nota.controller.js';
 import { createFaltaRouter } from './controllers/falta.controller.js';
 import { createHorarioRouter } from './controllers/horario.controller.js';
 import { createDashboardRouter } from './controllers/dashboard.controller.js';
+import { createDashboardProfessorRouter } from './controllers/dashboardProfesor.controller.js';
+
 
 config()
 
@@ -33,7 +34,9 @@ await migrate(db);
 await seed(db, hashingService);
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: '*'
+}));
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -42,29 +45,26 @@ app.get("/", (req, res) => {
     })
 })
 
-// 🔓 ROTA PÚBLICA SIMPLES - Vamos testar primeiro
 app.post('/public/first-user', async (req, res) => {
     console.log('🎯 ROTA PÚBLICA ACESSADA DIRECTAMENTE!');
     console.log('Body recebido:', req.body);
-    
+
     try {
-        // Importação dinâmica para evitar problemas de ciclo
         const { UsuarioService } = await import('./services/usuario.service.js');
         const usuarioService = new UsuarioService(db, hashingService);
-        
+
         // Verifica se já existe algum usuário
         const usuarios = await usuarioService.list();
         console.log(`Usuários existentes: ${usuarios.length}`);
-        
+
         if (usuarios.length > 0) {
-            return res.status(403).json({ 
-                error: 'Já existem usuários no sistema. Use o login normal.' 
+            return res.status(403).json({
+                error: 'Já existem usuários no sistema. Use o login normal.'
             });
         }
 
-        // Cria o usuário
         const usuarioCriado = await usuarioService.create(req.body);
-        
+
         console.log('✅ Primeiro usuário criado com sucesso!');
         res.status(201).json({
             message: 'Primeiro usuário criado com sucesso!',
@@ -89,6 +89,7 @@ app.use('/notas', createNotaRouter(db, hashingService));
 app.use('/faltas', createFaltaRouter(db, hashingService));
 app.use('/horarios', createHorarioRouter(db, hashingService));
 app.use('/api/dashboard', createDashboardRouter(db, hashingService));
+app.use('/api', createDashboardProfessorRouter(db, hashingService));
 
 app.listen(port, () => {
     console.log(`Servidor rodando na porta ${port}`);

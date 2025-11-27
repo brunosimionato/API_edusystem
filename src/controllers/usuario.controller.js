@@ -1,4 +1,3 @@
-// src/controllers/usuario.controller.js
 import { Router } from "express";
 import { UsuarioService } from "../services/usuario.service.js";
 import { SecretariaService } from "../services/secretaria.service.js";
@@ -12,9 +11,7 @@ export function createUsuarioRouter(db, hashingService) {
     const secretariaService = new SecretariaService(db, usuarioService);
     const router = Router();
 
-    // =========================================================
-    // 🔓 ROTA PÚBLICA - PRIMEIRO USUÁRIO DO SISTEMA
-    // =========================================================
+    // ROTA PÚBLICA
     router.post("/public", async (req, res) => {
         const novoUsuario = req.body;
 
@@ -36,14 +33,11 @@ export function createUsuarioRouter(db, hashingService) {
         }
     });
 
-    // =========================================================
-    // 🔐 A PARTIR DAQUI, TODAS AS ROTAS EXIGEM AUTENTICAÇÃO
-    // =========================================================
+    // ROTA IDENTIFICAÇÃO
     router.use(createAuthMiddleware(hashingService));
 
-    // =========================================================
-    // 🔐 LISTAR TODOS OS USUÁRIOS (ativos e inativos)
-    // =========================================================
+
+    // LISTA USUÁRIOS ATIVOS E INATIVOS
     router.get("/", async (req, res) => {
         try {
             const usuarios = await usuarioService.list();
@@ -53,9 +47,8 @@ export function createUsuarioRouter(db, hashingService) {
         }
     });
 
-    // =========================================================
-    // 🔐 BUSCAR USUÁRIO POR ID
-    // =========================================================
+
+    // BUSCA USUÁRIO POR ID
     router.get("/:id", async (req, res) => {
         try {
             const usuario = await usuarioService.getById(req.params.id);
@@ -70,22 +63,21 @@ export function createUsuarioRouter(db, hashingService) {
         }
     });
 
-    // =========================================================
-    // 🔐 CRIAR NOVO USUÁRIO (somente autenticado)
-    // =========================================================
+
+    // CRIA NOVO USUÁRIO
     router.post("/", async (req, res) => {
         const novoUsuario = req.body;
 
         try {
-            // 1️⃣ cria o usuário na tabela usuarios
+            // cria o usuário na tabela usuarios
             const usuarioCriado = await usuarioService.create(novoUsuario);
 
-            // 2️⃣ Criar entidade automaticamente se for SECRETARIA
+            // criar entidade automaticamente se for SECRETARIA
             if (novoUsuario.tipo_usuario === "secretaria") {
                 await secretariaService.create({
                     idUsuario: usuarioCriado.id
                 });
-                console.log(`✅ Secretaria criada (idUsuario: ${usuarioCriado.id})`);
+                console.log(`Secretaria criada (idUsuario: ${usuarioCriado.id})`);
             }
 
             res.status(201).json(usuarioCriado);
@@ -95,9 +87,8 @@ export function createUsuarioRouter(db, hashingService) {
         }
     });
 
-    // =========================================================
-    // 🔐 EDITAR USUÁRIO
-    // =========================================================
+
+    // EDITAR ALUNO
     router.put("/:id", async (req, res) => {
         try {
             const usuarioAtualizado = await usuarioService.update(req.params.id, req.body);
@@ -110,9 +101,8 @@ export function createUsuarioRouter(db, hashingService) {
         }
     });
 
-    // =========================================================
-    // 🔐 INATIVAR (DELETE lógico)
-    // =========================================================
+
+    // INATIVAR
     router.delete("/:id", async (req, res) => {
         try {
             await usuarioService.delete(req.params.id);
@@ -125,9 +115,8 @@ export function createUsuarioRouter(db, hashingService) {
         }
     });
 
-    // =========================================================
-    // 🔐 REATIVAR USUÁRIO
-    // =========================================================
+
+    // REATIVAR USUÁRIO
     router.put("/:id/ativar", async (req, res) => {
         try {
             const usuarioReativado = await usuarioService.reativar(req.params.id);
