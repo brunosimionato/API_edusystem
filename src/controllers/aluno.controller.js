@@ -1,21 +1,34 @@
 import express from 'express';
 import { ZodError } from "zod";
-import { get_db } from '../db/index.js'; 
 import { AlunoService } from '../services/aluno.service.js';
 import { AlunoRepository } from '../repositories/aluno.repository.js';
 import { createAuthMiddleware } from './auth.middleware.js';
+import { HistoricoEscolarRepository } from "../repositories/historico_escolar.repository.js";
+
 
 export class AlunoController {
   constructor(db) {
     const alunoRepository = new AlunoRepository(db);
-    this.alunoService = new AlunoService(db, alunoRepository);
+    const historicoEscolarRepository = new HistoricoEscolarRepository(db);
+
+    this.alunoService = new AlunoService(
+      db,
+      alunoRepository,
+      historicoEscolarRepository
+    );
   }
+
 
   async list(req, res) {
     try {
-      const alunos = await this.alunoService.list();
+      const filters = req.query;
+      console.log('🔍 Filtros recebidos para alunos:', filters);
+
+      const alunos = await this.alunoService.list(filters);
       res.json(alunos);
+
     } catch (error) {
+      console.error('❌ Erro ao listar alunos:', error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -23,81 +36,128 @@ export class AlunoController {
   async getById(req, res) {
     try {
       const { id } = req.params;
-      const aluno = await this.alunoService.getById(parseInt(id));
-      
+
+      const aluno = await this.alunoService.getAlunoComHistorico(id);
+
       if (!aluno) {
-        return res.status(404).json({ error: 'Aluno não encontrado' });
+        return res.status(404).json({ message: "Aluno não encontrado" });
       }
-      
-      res.json(aluno);
+
+      return res.json(aluno);
+
     } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: "Erro ao buscar aluno" });
+    }
+  }
+
+
+  // BUSCA ALUNOS POR TURMA
+  async getByTurma(req, res) {
+    try {
+      const { idTurma } = req.params;
+
+      const alunos = await this.alunoService.getByTurma(idTurma);
+
+      res.json(alunos);
+    } catch (error) {
+      console.error("❌ Erro no getByTurma:", error);
       res.status(500).json({ error: error.message });
     }
   }
 
-async create(req, res) {
-  console.log("📥 RECEBIDO DO FRONT:", JSON.stringify(req.body, null, 2));
-  console.log("🟣 DUMP do historicoEscolar recebido:", req.body.historicoEscolar);
-  
 
-  try {
-    const alunoData = {
-      nome: req.body.nome,
-      cpf: req.body.cpf,
-      cns: req.body.cns,
-      nascimento: req.body.dataNascimento,  
-      genero: req.body.genero,
-      religiao: req.body.religiao ?? null,
-      telefone: req.body.telefone,
-      logradouro: req.body.rua,             
-      numero: req.body.numero,
-      bairro: req.body.bairro,
-      cep: req.body.cep,
-      cidade: req.body.cidade,
-      estado: req.body.estado,
+  async create(req, res) {
+    console.log("🟣 DUMP do historicoEscolar recebido:", req.body.historicoEscolar);
 
-      responsavel1Nome: req.body.nomeR1,
-      responsavel1Cpf: req.body.cpfR1,
-      responsavel1Telefone: req.body.telefoneR1,
-      responsavel1Parentesco: req.body.parentescoR1,
+    try {
+      const alunoData = {
+        nome: req.body.nome,
+        cpf: req.body.cpf,
+        cns: req.body.cns || null,
+        nascimento: req.body.nascimento,
+        genero: req.body.genero,
+        religiao: req.body.religiao ?? null,
+        telefone: req.body.telefone,
 
-      responsavel2Nome: req.body.nomeR2 ?? null,
-      responsavel2Cpf: req.body.cpfR2 ?? null,
-      responsavel2Telefone: req.body.telefoneR2 ?? null,
-      responsavel2Parentesco: req.body.parentescoR2 ?? null,
+        logradouro: req.body.logradouro,
+        numero: req.body.numero,
+        bairro: req.body.bairro,
+        cep: req.body.cep,
+        cidade: req.body.cidade,
+        estado: req.body.estado,
 
-      turma: req.body.turma ? Number(req.body.turma) : null,
-      historicoEscolar: req.body.historicoEscolar ?? null
-    };
+        responsavel1Nome: req.body.responsavel1Nome,
+        responsavel1Cpf: req.body.responsavel1Cpf,
+        responsavel1Telefone: req.body.responsavel1Telefone,
+        responsavel1Parentesco: req.body.responsavel1Parentesco,
 
-    const novoAluno = await this.alunoService.create(alunoData);
-    res.status(201).json(novoAluno);
+        responsavel2Nome: req.body.responsavel2Nome || null,
+        responsavel2Cpf: req.body.responsavel2Cpf || null,
+        responsavel2Telefone: req.body.responsavel2Telefone || null,
+        responsavel2Parentesco: req.body.responsavel2Parentesco || null,
 
-} catch (error) {
-  if (error instanceof ZodError) {
-    console.error("❌ Erro de validação ZOD:", error.issues);
-    return res.status(400).json({
-      error: "Dados inválidos",
-      detalhes: error.issues,
-    });
+        turma: req.body.turma ? Number(req.body.turma) : null,
+        anoLetivo: req.body.anoLetivo ? Number(req.body.anoLetivo) : new Date().getFullYear(),
+
+        historicoEscolar: req.body.historicoEscolar ?? null
+      };
+
+      const novoAluno = await this.alunoService.create(alunoData);
+      res.status(201).json(novoAluno);
+
+    } catch (error) {
+      if (error instanceof ZodError) {
+        console.error("❌ Erro de validação ZOD:", error.issues);
+        return res.status(400).json({
+          error: "Dados inválidos",
+          detalhes: error.issues,
+        });
+      }
+      console.error("❌ Erro inesperado no CREATE:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
-  console.error("❌ Erro inesperado no CREATE:", error);
-  res.status(500).json({ error: error.message });
-}
-}
 
   async update(req, res) {
+    console.log("🟦 Recebido no backend (UPDATE):", req.body);
+
     try {
       const { id } = req.params;
-      const updateData = req.body;
 
-      const alunoAtualizado = await this.alunoService.update(parseInt(id), updateData);
-      res.json(alunoAtualizado);
+      let data = { ...req.body };
+
+      data.responsavel1Nome = data.responsavel1Nome ?? "";
+      data.responsavel1Cpf = data.responsavel1Cpf ?? "";
+      data.responsavel1Telefone = data.responsavel1Telefone ?? "";
+      data.responsavel1Parentesco = data.responsavel1Parentesco ?? "";
+
+
+      data.responsavel2Nome = data.responsavel2Nome ?? null;
+      data.responsavel2Cpf = data.responsavel2Cpf ?? null;
+      data.responsavel2Telefone = data.responsavel2Telefone ?? null;
+      data.responsavel2Parentesco = data.responsavel2Parentesco ?? null;
+
+      console.log("📤 Enviando para alunoService.update():", data);
+
+      const alunoAtualizado = await this.alunoService.update(parseInt(id), data);
+
+      return res.json(alunoAtualizado);
+
     } catch (error) {
-      if (error.message === 'Aluno não encontrado') {
+      console.error("❌ Erro no UPDATE:", error);
+
+      if (error.message === "Aluno não encontrado") {
         return res.status(404).json({ error: error.message });
       }
-      res.status(500).json({ error: error.message });
+
+      if (error.message.includes("CPF")) {
+        return res.status(409).json({ error: error.message });
+      }
+
+
+      return res.status(500).json({ error: "Erro ao atualizar aluno" });
+
     }
   }
 
@@ -106,6 +166,7 @@ async create(req, res) {
       const { id } = req.params;
       await this.alunoService.delete(parseInt(id));
       res.status(204).send();
+
     } catch (error) {
       if (error.message === 'Aluno não encontrado') {
         return res.status(404).json({ error: error.message });
@@ -118,14 +179,16 @@ async create(req, res) {
 export function createAlunoRouter(db, hashingService) {
   const router = express.Router();
   const alunoController = new AlunoController(db);
-  
+
   router.use(createAuthMiddleware(hashingService));
-  
+
+  router.get('/turma/:idTurma', (req, res) => alunoController.getByTurma(req, res));
+
   router.get('/', (req, res) => alunoController.list(req, res));
-  router.get('/:id', (req, res) => alunoController.getById(req, res));
   router.post('/', (req, res) => alunoController.create(req, res));
   router.put('/:id', (req, res) => alunoController.update(req, res));
+  router.get('/:id', (req, res) => alunoController.getById(req, res));
   router.delete('/:id', (req, res) => alunoController.delete(req, res));
-  
+
   return router;
 }

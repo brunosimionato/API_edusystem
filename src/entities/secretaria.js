@@ -9,7 +9,6 @@ const secretariaSchema = z.object({
     idUsuario: z.number()
 });
 
-// Representa uma nova secretaria a ser criada (antes de existir no banco)
 export class NovoSecretaria {
     /**
      * @param {{

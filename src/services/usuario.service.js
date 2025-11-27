@@ -1,4 +1,3 @@
-// src/services/usuario.service.js
 import { NovoUsuario, Usuario } from '../entities/usuario.js';
 
 export class UsuarioService {
@@ -7,7 +6,7 @@ export class UsuarioService {
         this.hashingService = hashingService;
     }
 
-    // ✅ Lista apenas usuários ATIVOS
+    // Lista apenas usuários ATIVOS
     async list() {
         try {
             const res = await this.db.query(
@@ -20,6 +19,7 @@ export class UsuarioService {
         }
     }
 
+    // GET BY ID
     async getById(id) {
         try {
             const res = await this.db.query(
@@ -36,6 +36,8 @@ export class UsuarioService {
         }
     }
 
+
+    // GET BY EMAIL
     async getByEmail(email) {
         try {
             const res = await this.db.query(
@@ -52,6 +54,8 @@ export class UsuarioService {
         }
     }
 
+
+    // CREATE USUÁRIO
     async create(novoUsuario) {
         try {
             const passwordHash = await this.hashingService.hash(novoUsuario.senha);
@@ -74,20 +78,21 @@ export class UsuarioService {
         }
     }
 
-async update(id, updateData) {
-    try {
-        const atual = await this.getById(id);
+    // ATUALIZAR USUÁRIO
+    async update(id, updateData) {
+        try {
+            const atual = await this.getById(id);
 
-        if (!atual) {
-            throw new Error("Usuário não encontrado");
-        }
+            if (!atual) {
+                throw new Error("Usuário não encontrado");
+            }
 
-        const passwordHash = updateData.senha
-            ? await this.hashingService.hash(updateData.senha)
-            : atual.hash_senha;
+            const passwordHash = updateData.senha
+                ? await this.hashingService.hash(updateData.senha)
+                : atual.hash_senha;
 
-        const res = await this.db.query(
-            `UPDATE usuarios
+            const res = await this.db.query(
+                `UPDATE usuarios
              SET nome = $1,
                  email = $2,
                  hash_senha = $3,
@@ -95,31 +100,30 @@ async update(id, updateData) {
                  updated_at = NOW()
              WHERE id_usuarios = $5
              RETURNING *`,
-            [
-                updateData.nome ?? atual.nome,
-                updateData.email ?? atual.email,
-                passwordHash,
-                atual.tipo_usuario,
-                id
-            ]
-        );
+                [
+                    updateData.nome ?? atual.nome,
+                    updateData.email ?? atual.email,
+                    passwordHash,
+                    atual.tipo_usuario,
+                    id
+                ]
+            );
 
-        return Usuario.fromRow(res.rows[0]);
+            return Usuario.fromRow(res.rows[0]);
 
-    } catch (error) {
+        } catch (error) {
 
-        // ✅ novo tratamento para email duplicado
-        if (error.code === "23505") {
-            throw new Error("Email já está em uso");
+            if (error.code === "23505") {
+                throw new Error("Email já está em uso");
+            }
+
+            console.error("Erro ao atualizar usuário:", error);
+            throw new Error(`Erro ao atualizar usuário: ${error.message}`);
         }
-
-        console.error("Erro ao atualizar usuário:", error);
-        throw new Error(`Erro ao atualizar usuário: ${error.message}`);
     }
-}
 
 
-    // ✅ INATIVA usuário ao invés de deletar
+    // INATIVA usuário ao invés de deletar
     async delete(id) {
         try {
             const res = await this.db.query(
@@ -140,7 +144,7 @@ async update(id, updateData) {
         }
     }
 
-    // ✅ OPCIONAL: reativar usuário futuramente
+    // REATIVA USUÁRIO
 
     async reativar(id) {
         const res = await this.db.query(
@@ -154,5 +158,5 @@ async update(id, updateData) {
 
         return Usuario.fromRow(res.rows[0]);
     }
-    
+
 }

@@ -1,22 +1,22 @@
 CREATE TABLE usuarios (
-    id_usuarios SERIAL PRIMARY KEY,
+    id_usuarios SERIAL,
 
     nome VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    hash_senha VARCHAR(100) NOT NULL,
-    tipo_usuario VARCHAR(20) NOT NULL,
-    ativo BOOLEAN DEFAULT true,
-    
+    hash_senha VARCHAR(100) NOT NULL, -- por favor não deixar senhas no banco
+    tipo_usuario VARCHAR(20) NOT NULL, -- redundante?
+
     created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    updated_at TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT PK_usuarios PRIMARY KEY (id_usuarios)
 );
 
 CREATE TABLE alunos (
     id_alunos SERIAL,
-
     nome VARCHAR(150) NOT NULL,
+    cpf VARCHAR(14) NOT NULL,
     cns VARCHAR(20) NOT NULL,
-    cpf VARCHAR(14) UNIQUE NOT NULL,
     nascimento DATE NOT NULL,
     genero VARCHAR(20) NOT NULL,
     religiao VARCHAR(100),
@@ -137,7 +137,7 @@ CREATE TABLE notas (
     id_aluno INTEGER NOT NULL,
     id_disciplina INTEGER NOT NULL,
     id_turma INTEGER NOT NULL,
-
+    ano_letivo INT NOT NULL,
     nota DECIMAL(4,2),
     bimestre INTEGER,
 
@@ -200,7 +200,7 @@ CREATE TABLE historicos_escolares (
 CREATE TABLE faltas (
     id_faltas SERIAL,
     id_aluno INTEGER NOT NULL,
-    id_disciplina INTEGER NOT NULL,
+    periodo INTEGER,
 
     data_falta DATE,
 
@@ -209,7 +209,6 @@ CREATE TABLE faltas (
 
     CONSTRAINT PK_faltas PRIMARY KEY (id_faltas),
     CONSTRAINT FK_faltas_aluno FOREIGN KEY (id_aluno) REFERENCES alunos(id_alunos),
-    CONSTRAINT FK_faltas_disciplina FOREIGN KEY (id_disciplina) REFERENCES disciplinas(id_disciplinas)
 );
 
 CREATE TABLE recados (
@@ -334,12 +333,18 @@ CREATE TABLE ocorrencias (
     CONSTRAINT FK_ocorrencias_usuario_registrador FOREIGN KEY (id_usuario_registrador) REFERENCES usuarios(id_usuarios)
 );
 
-INSERT INTO disciplinas (nome) VALUES ('Matemática');
-INSERT INTO disciplinas (nome) VALUES ('Ensino Globalizado');
-INSERT INTO disciplinas (nome) VALUES ('Português');
-INSERT INTO disciplinas (nome) VALUES ('Ciências');
-INSERT INTO disciplinas (nome) VALUES ('História');
-INSERT INTO disciplinas (nome) VALUES ('Geografia');
-INSERT INTO disciplinas (nome) VALUES ('Inglês');
-INSERT INTO disciplinas (nome) VALUES ('Arte');
-INSERT INTO disciplinas (nome) VALUES ('Educação Física');
+
+
+
+
+CREATE TABLE professores_turmas (
+    id_professores_turmas SERIAL PRIMARY KEY,
+    id_professor INTEGER NOT NULL,
+    id_turma INTEGER NOT NULL,
+
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT FK_professores_turmas_professor FOREIGN KEY (id_professor) REFERENCES professores(id_professores),
+    CONSTRAINT FK_professores_turmas_turma FOREIGN KEY (id_turma) REFERENCES turmas(id_turmas)
+);

@@ -14,16 +14,14 @@ export class FaltaController {
      */
     async list(req, res) {
         try {
-            const { aluno_id, disciplina_id, data_inicio, data_fim, page = 1, limit = 10 } = req.query;
+            const { aluno_id, data_inicio, data_fim, page = 1, limit = 10 } = req.query;
 
             let query = `
                 SELECT 
                     f.*,
-                    a.nome as aluno_nome,
-                    d.nome as disciplina_nome
+                    a.nome as aluno_nome
                 FROM faltas f
                 LEFT JOIN alunos a ON f.id_aluno = a.id_alunos
-                LEFT JOIN disciplinas d ON f.id_disciplina = d.id_disciplinas
                 WHERE 1=1
             `;
             const params = [];
@@ -35,25 +33,19 @@ export class FaltaController {
                 params.push(aluno_id);
             }
 
-            if (disciplina_id) {
-                paramCount++;
-                query += ` AND f.id_disciplina = $${paramCount}`;
-                params.push(disciplina_id);
-            }
-
             if (data_inicio) {
                 paramCount++;
-                query += ` AND f.data >= $${paramCount}`;
+                query += ` AND f.data_falta >= $${paramCount}`;
                 params.push(data_inicio);
             }
 
             if (data_fim) {
                 paramCount++;
-                query += ` AND f.data <= $${paramCount}`;
+                query += ` AND f.data_falta <= $${paramCount}`;
                 params.push(data_fim);
             }
 
-            query += ` ORDER BY f.data DESC, f.created_at DESC`;
+            query += ` ORDER BY f.data_falta DESC, f.created_at DESC`;
 
             // Paginação
             const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -70,18 +62,11 @@ export class FaltaController {
             const faltas = result.rows.map(row => ({
                 id: row.id_faltas,
                 idAluno: row.id_aluno,
-                idDisciplina: row.id_disciplina,
-                data: row.data,
-                quantidadeAulas: row.quantidade_aulas,
-                justificada: row.justificada,
-                observacao: row.observacao,
+                data: row.data_falta,
+                periodo: row.periodo,
                 aluno: {
                     id: row.id_aluno,
                     nome: row.aluno_nome
-                },
-                disciplina: {
-                    id: row.id_disciplina,
-                    nome: row.disciplina_nome
                 },
                 createdAt: row.created_at,
                 updatedAt: row.updated_at
@@ -104,11 +89,9 @@ export class FaltaController {
             const result = await this.db.query(
                 `SELECT 
                     f.*,
-                    a.nome as aluno_nome,
-                    d.nome as disciplina_nome
+                    a.nome as aluno_nome
                 FROM faltas f
                 LEFT JOIN alunos a ON f.id_aluno = a.id_alunos
-                LEFT JOIN disciplinas d ON f.id_disciplina = d.id_disciplinas
                 WHERE f.id_faltas = $1`,
                 [id]
             );
@@ -121,18 +104,11 @@ export class FaltaController {
             const falta = {
                 id: row.id_faltas,
                 idAluno: row.id_aluno,
-                idDisciplina: row.id_disciplina,
-                data: row.data,
-                quantidadeAulas: row.quantidade_aulas,
-                justificada: row.justificada,
-                observacao: row.observacao,
+                data: row.data_falta,
+                periodo: row.periodo,
                 aluno: {
                     id: row.id_aluno,
                     nome: row.aluno_nome
-                },
-                disciplina: {
-                    id: row.id_disciplina,
-                    nome: row.disciplina_nome
                 },
                 createdAt: row.created_at,
                 updatedAt: row.updated_at
@@ -150,12 +126,11 @@ export class FaltaController {
      */
     async create(req, res) {
         try {
-            const { idAluno, idDisciplina, data, quantidadeAulas, justificada = false, observacao } = req.body;
+            const { idAluno, data, periodo } = req.body;
 
-            // Validações
-            if (!idAluno || !idDisciplina || !data) {
+            if (!idAluno || !data) {
                 return res.status(400).json({ 
-                    error: 'idAluno, idDisciplina e data são obrigatórios' 
+                    error: 'idAluno e data são obrigatórios' 
                 });
             }
 
@@ -168,37 +143,22 @@ export class FaltaController {
                 return res.status(404).json({ error: 'Aluno não encontrado' });
             }
 
-            // Verifica se a disciplina existe
-            const disciplinaResult = await this.db.query(
-                'SELECT id_disciplinas FROM disciplinas WHERE id_disciplinas = $1',
-                [idDisciplina]
-            );
-            if (disciplinaResult.rows.length === 0) {
-                return res.status(404).json({ error: 'Disciplina não encontrada' });
-            }
-
             const result = await this.db.query(
                 `INSERT INTO faltas (
                     id_aluno, 
-                    id_disciplina, 
-                    data, 
-                    quantidade_aulas, 
-                    justificada, 
-                    observacao
-                ) VALUES ($1, $2, $3, $4, $5, $6) 
+                    data_falta,
+                    periodo
+                ) VALUES ($1, $2, $3) 
                 RETURNING *`,
-                [idAluno, idDisciplina, data, quantidadeAulas || 1, justificada, observacao]
+                [idAluno, data, periodo || null]
             );
 
             const novaFalta = result.rows[0];
             res.status(201).json({
                 id: novaFalta.id_faltas,
                 idAluno: novaFalta.id_aluno,
-                idDisciplina: novaFalta.id_disciplina,
-                data: novaFalta.data,
-                quantidadeAulas: novaFalta.quantidade_aulas,
-                justificada: novaFalta.justificada,
-                observacao: novaFalta.observacao,
+                data: novaFalta.data_falta,
+                periodo: novaFalta.periodo,
                 createdAt: novaFalta.created_at,
                 updatedAt: novaFalta.updated_at
             });
@@ -214,18 +174,16 @@ export class FaltaController {
     async update(req, res) {
         try {
             const { id } = req.params;
-            const { data, quantidadeAulas, justificada, observacao } = req.body;
+            const { data, periodo } = req.body;
 
             const result = await this.db.query(
                 `UPDATE faltas SET 
-                    data = COALESCE($1, data),
-                    quantidade_aulas = COALESCE($2, quantidade_aulas),
-                    justificada = COALESCE($3, justificada),
-                    observacao = COALESCE($4, observacao),
+                    data_falta = COALESCE($1, data_falta),
+                    periodo = COALESCE($2, periodo),
                     updated_at = NOW()
-                WHERE id_faltas = $5
+                WHERE id_faltas = $3
                 RETURNING *`,
-                [data, quantidadeAulas, justificada, observacao, id]
+                [data, periodo, id]
             );
 
             if (result.rows.length === 0) {
@@ -236,11 +194,8 @@ export class FaltaController {
             res.json({
                 id: faltaAtualizada.id_faltas,
                 idAluno: faltaAtualizada.id_aluno,
-                idDisciplina: faltaAtualizada.id_disciplina,
-                data: faltaAtualizada.data,
-                quantidadeAulas: faltaAtualizada.quantidade_aulas,
-                justificada: faltaAtualizada.justificada,
-                observacao: faltaAtualizada.observacao,
+                data: faltaAtualizada.data_falta,
+                periodo: faltaAtualizada.periodo,
                 createdAt: faltaAtualizada.created_at,
                 updatedAt: faltaAtualizada.updated_at
             });
@@ -279,53 +234,38 @@ export class FaltaController {
     async getByAluno(req, res) {
         try {
             const { alunoId } = req.params;
-            const { disciplina_id, data_inicio, data_fim } = req.query;
+            const { data_inicio, data_fim } = req.query;
 
             let query = `
                 SELECT 
-                    f.*,
-                    d.nome as disciplina_nome
+                    f.*
                 FROM faltas f
-                LEFT JOIN disciplinas d ON f.id_disciplina = d.id_disciplinas
                 WHERE f.id_aluno = $1
             `;
             const params = [alunoId];
             let paramCount = 1;
 
-            if (disciplina_id) {
-                paramCount++;
-                query += ` AND f.id_disciplina = $${paramCount}`;
-                params.push(disciplina_id);
-            }
-
             if (data_inicio) {
                 paramCount++;
-                query += ` AND f.data >= $${paramCount}`;
+                query += ` AND f.data_falta >= $${paramCount}`;
                 params.push(data_inicio);
             }
 
             if (data_fim) {
                 paramCount++;
-                query += ` AND f.data <= $${paramCount}`;
+                query += ` AND f.data_falta <= $${paramCount}`;
                 params.push(data_fim);
             }
 
-            query += ` ORDER BY f.data DESC`;
+            query += ` ORDER BY f.data_falta DESC`;
 
             const result = await this.db.query(query, params);
 
             const faltas = result.rows.map(row => ({
                 id: row.id_faltas,
                 idAluno: row.id_aluno,
-                idDisciplina: row.id_disciplina,
-                data: row.data,
-                quantidadeAulas: row.quantidade_aulas,
-                justificada: row.justificada,
-                observacao: row.observacao,
-                disciplina: {
-                    id: row.id_disciplina,
-                    nome: row.disciplina_nome
-                },
+                data: row.data_falta,
+                periodo: row.periodo,
                 createdAt: row.created_at,
                 updatedAt: row.updated_at
             }));
@@ -342,14 +282,12 @@ export class FaltaController {
      */
     async getEstatisticas(req, res) {
         try {
-            const { aluno_id, disciplina_id, data_inicio, data_fim } = req.query;
+            const { aluno_id, data_inicio, data_fim } = req.query;
 
             let query = `
                 SELECT 
                     COUNT(*) as total_faltas,
-                    SUM(quantidade_aulas) as total_aulas_faltadas,
-                    COUNT(DISTINCT id_aluno) as total_alunos,
-                    COUNT(DISTINCT id_disciplina) as total_disciplinas
+                    COUNT(DISTINCT id_aluno) as total_alunos
                 FROM faltas
                 WHERE 1=1
             `;
@@ -362,21 +300,15 @@ export class FaltaController {
                 params.push(aluno_id);
             }
 
-            if (disciplina_id) {
-                paramCount++;
-                query += ` AND id_disciplina = $${paramCount}`;
-                params.push(disciplina_id);
-            }
-
             if (data_inicio) {
                 paramCount++;
-                query += ` AND data >= $${paramCount}`;
+                query += ` AND data_falta >= $${paramCount}`;
                 params.push(data_inicio);
             }
 
             if (data_fim) {
                 paramCount++;
-                query += ` AND data <= $${paramCount}`;
+                query += ` AND data_falta <= $${paramCount}`;
                 params.push(data_fim);
             }
 
@@ -385,9 +317,7 @@ export class FaltaController {
 
             res.json({
                 totalFaltas: parseInt(estatisticas.total_faltas),
-                totalAulasFaltadas: parseInt(estatisticas.total_aulas_faltadas) || 0,
-                totalAlunos: parseInt(estatisticas.total_alunos),
-                totalDisciplinas: parseInt(estatisticas.total_disciplinas)
+                totalAlunos: parseInt(estatisticas.total_alunos)
             });
         } catch (error) {
             console.error('Erro ao obter estatísticas:', error);

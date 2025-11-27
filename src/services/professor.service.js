@@ -1,13 +1,7 @@
-import { NovoProfessor, Professor } from '../entities/professor.js';
-import { NovoUsuario } from '../entities/usuario.js';
+import { NovoProfessor } from "../entities/professor.js";
 
 export class ProfessorService {
-    /**
-     * @param {import('../db/index.js').PoolClient} db
-     * @param {import('./usuario.service.js').UsuarioService} usuarioService
-     * @param {import('./disciplina.service.js').DisciplinaService} disciplinaService
-     * @param {import('../repositories/professor.repository.js').ProfessorRepository} professorRepository
-     */
+
     constructor(db, usuarioService, disciplinaService, professorRepository) {
         this.db = db;
         this.usuarioService = usuarioService;
@@ -15,206 +9,187 @@ export class ProfessorService {
         this.professorRepository = professorRepository;
     }
 
-    /**
-     * Lista todos os professores
-     * @returns {Promise<Professor[]>}
-     */
-async list() {
-    const professores = await this.professorRepository.list();
+    /* ============================================================
+       LISTAR
+    ============================================================ */
+    async list() {
+        const professores = await this.professorRepository.list();
 
-    const listaCompletada = await Promise.all(
-        professores.map(async (professor) => {
-            const usuario = await this.usuarioService.getById(professor.idUsuario);
+        return Promise.all(
+            professores.map(async (prof) => ({
+                ...prof,
+                usuario: await this.usuarioService.getById(prof.idUsuario),
+                disciplinaEspecialidade:
+                    await this.disciplinaService.getById(prof.idDisciplinaEspecialidade),
+                disciplinas:
+                    await this.professorRepository.getProfessorDisciplinas(prof.id),
+                turmas:
+                    await this.professorRepository.getProfessorTurmas(prof.id)
+            }))
+        );
+    }
 
-            // ⛔ Se o usuário estiver inativo, ignora o professor
-            if (!usuario || usuario.ativo === false) {
-                return null;
-            }
 
-            const disciplinaEspecialidade = await this.disciplinaService.getById(professor.idDisciplinaEspecialidade);
-
-            return {
-                ...professor,
-                usuario,
-                disciplinaEspecialidade,
-                disciplinas: []
-            };
-        })
-    );
-
-    // ✅ Remove os "null" (professores cujo usuário está inativo)
-    return listaCompletada.filter(p => p !== null);
-}
-
-    /**
-     * Busca um professor pelo ID
-     * @param {number} id
-     * @returns {Promise<Professor|null>}
-     */
+    // GET BY ID
     async getById(id) {
-        const res = await this.db.query(
-            `SELECT * FROM professores WHERE id_professores = $1`,
-            [id]
-        );
+        const professor = await this.professorRepository.getById(id);
+        if (!professor) return null;
 
-        if (res.rows.length === 0) return null;
-
-        const row = res.rows[0];
-        return Professor.fromObj({
-            id: row.id_professores,
-            idUsuario: row.id_usuario,
-            idDisciplinaEspecialidade: row.id_disciplina_especialidade,
-            telefone: row.telefone,
-            genero: row.genero,
-            cpf: row.cpf,
-            nascimento: row.nascimento,
-            logradouro: row.logradouro,
-            numero: row.numero,
-            bairro: row.bairro,
-            cep: row.cep,
-            cidade: row.cidade,
-            estado: row.estado,
-            formacaoAcademica: row.formacao_academica,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
-        });
+        return {
+            ...professor,
+            usuario: await this.usuarioService.getById(professor.idUsuario),
+            disciplinaEspecialidade:
+                await this.disciplinaService.getById(professor.idDisciplinaEspecialidade),
+            disciplinas:
+                await this.professorRepository.getProfessorDisciplinas(professor.id),
+            turmas:
+                await this.professorRepository.getProfessorTurmas(professor.id)
+        };
     }
 
-    /**
-     * Busca um professor pelo usuario_id
-     * @param {number} usuarioId
-     * @returns {Promise<Professor|null>}
-     */
-    async getByUsuarioId(usuarioId) {
-        const res = await this.db.query(
-            `SELECT * FROM professores WHERE id_usuario = $1`,
-            [usuarioId]
-        );
+    // CREATE
+    async create(novoUsuario, professorPayload, disciplinas = [], turmas = []) {
 
-        if (res.rows.length === 0) return null;
-
-        const row = res.rows[0];
-        return Professor.fromObj({
-            id: row.id_professores,
-            idUsuario: row.id_usuario,
-            idDisciplinaEspecialidade: row.id_disciplina_especialidade,
-            telefone: row.telefone,
-            genero: row.genero,
-            cpf: row.cpf,
-            nascimento: row.nascimento,
-            logradouro: row.logradouro,
-            numero: row.numero,
-            bairro: row.bairro,
-            cep: row.cep,
-            cidade: row.cidade,
-            estado: row.estado,
-            formacaoAcademica: row.formacao_academica,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
+        const novoProfessor = NovoProfessor.fromObj({
+            ...professorPayload,
+            idDisciplinas: disciplinas,
+            turmas: turmas
         });
-    }
 
-    /**
-     * Cria um novo professor (usando IDs de usuario e disciplina existentes)
-     * @param {NovoUsuario|null} novoUsuario
-     * @param {NovoProfessor} novoProfessor
-     * @returns {Promise<Professor>}
-     */
-    async create(novoUsuario, novoProfessor) {
+        console.log("CREATE Professor - Dados recebidos:");
+        console.log("Usuário:", novoUsuario);
+        console.log("Professor:", professorPayload);
+        console.log("Disciplinas:", disciplinas);
+        console.log("Turmas:", turmas);
+
+        // Criar usuário
         if (!novoProfessor.idUsuario) {
             const createdUser = await this.usuarioService.create({
                 ...novoUsuario,
-                tipo_usuario: 'professor'
+                tipo_usuario: "professor"
             });
+
             novoProfessor.idUsuario = createdUser.id;
         }
 
-        const professor = await this.professorRepository.create(novoProfessor)
+        // Criar professor
+        const professor = await this.professorRepository.create(novoProfessor);
 
-        return professor;
-    }
-
-    /**
-     * Atualiza dados do professor
-     * @param {number} id
-     * @param {Object} updateData
-     * @returns {Promise<Professor>}
-     */
-    async update(id, updateData) {
-        const res = await this.db.query(
-            `UPDATE professores SET 
-                id_disciplina_especialidade = $1,
-                telefone = $2,
-                genero = $3,
-                cpf = $4,
-                nascimento = $5,
-                logradouro = $6,
-                numero = $7,
-                bairro = $8,
-                cep = $9,
-                cidade = $10,
-                estado = $11,
-                formacao_academica = $12,
-                updated_at = NOW()
-            WHERE id_professores = $13
-            RETURNING *`,
-            [
-                updateData.idDisciplinaEspecialidade,
-                updateData.telefone,
-                updateData.genero,
-                updateData.cpf,
-                updateData.nascimento,
-                updateData.logradouro,
-                updateData.numero,
-                updateData.bairro,
-                updateData.cep,
-                updateData.cidade,
-                updateData.estado,
-                updateData.formacaoAcademica,
-                id
-            ]
+        // Relacionamentos
+        await this.professorRepository.saveProfessorDisciplinas(
+            professor.id,
+            novoProfessor.idDisciplinas ?? []
         );
 
-        if (res.rows.length === 0) throw new Error("Professor não encontrado");
+        await this.professorRepository.saveProfessorTurmas(
+            professor.id,
+            novoProfessor.turmas ?? []
+        );
 
-        const row = res.rows[0];
-        return Professor.fromObj({
-            id: row.id_professores,
-            idUsuario: row.id_usuario,
-            idDisciplinaEspecialidade: row.id_disciplina_especialidade,
-            telefone: row.telefone,
-            genero: row.genero,
-            cpf: row.cpf,
-            nascimento: row.nascimento,
-            logradouro: row.logradouro,
-            numero: row.numero,
-            bairro: row.bairro,
-            cep: row.cep,
-            cidade: row.cidade,
-            estado: row.estado,
-            formacaoAcademica: row.formacao_academica,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
-        });
+        return this.getById(professor.id);
     }
 
-    /**
-     * Deleta um professor
-     * @param {number} id
-     * @returns {Promise<void>}
-     */
+    // UPDATE
+    async update(id, professorPayload, disciplinas, turmas, usuarioPayload) {
+
+        // 1. Buscar professor existente
+        const atual = await this.professorRepository.getById(id);
+        if (!atual) {
+            throw new Error("Professor não encontrado");
+        }
+
+
+        // 2. ATUALIZAR USUÁRIO (ONDE ESTÁ O NOME)
+        if (usuarioPayload && atual.idUsuario) {
+
+            try {
+                await this.usuarioService.update(atual.idUsuario, {
+                    nome: usuarioPayload.nome,
+                    email: usuarioPayload.email,
+                    tipo_usuario: "professor"
+                });
+                console.log("✅ Usuário atualizado com sucesso");
+            } catch (error) {
+                console.error("❌ Erro ao atualizar usuário:", error);
+                throw new Error("Falha ao atualizar dados do usuário: " + error.message);
+            }
+        } else {
+            console.log("⚠️  Dados de usuário não fornecidos ou ID usuário não encontrado");
+        }
+
+        // 3. Preparar dados do professor com relacionamentos
+        const professorCompleto = {
+            ...professorPayload,
+            idDisciplinaEspecialidade: professorPayload.idDisciplinaEspecialidade,
+            idDisciplinas: disciplinas,
+            turmas: turmas
+        };
+
+        console.log("🎯 Dados completos do professor:", professorCompleto);
+
+        // 4. Converter e validar dados do professor
+        const parsedProfessor = NovoProfessor.fromObj(professorCompleto);
+
+        // 5. Atualizar professor
+        try {
+            await this.professorRepository.update(id, parsedProfessor);
+        } catch (error) {
+            console.error("❌ Erro ao atualizar professor:", error);
+            throw new Error("Falha ao atualizar dados do professor: " + error.message);
+        }
+
+        // 6. Atualizar relacionamentos
+        try {
+            await this.professorRepository.saveProfessorDisciplinas(id, disciplinas);
+            console.log("✅ Disciplinas atualizadas:", disciplinas);
+
+            await this.professorRepository.saveProfessorTurmas(id, turmas);
+            console.log("✅ Turmas atualizadas:", turmas);
+        } catch (error) {
+            console.error("❌ Erro ao atualizar relacionamentos:", error);
+            throw new Error("Falha ao atualizar disciplinas/turmas: " + error.message);
+        }
+
+        // 7. Retornar professor atualizado
+        const professorAtualizado = await this.getById(id);
+        console.log("🎉 Professor completamente atualizado:", professorAtualizado);
+
+        return professorAtualizado;
+    }
+
+    //DELETE
     async delete(id) {
-        // Busca professor para pegar id_usuario
-        const profRes = await this.db.query(
-            "SELECT id_usuario FROM professores WHERE id_professores = $1",
-            [id]
-        );
-        if (profRes.rows.length === 0) throw new Error("Professor não encontrado");
-        const usuario_id = profRes.rows[0].id_usuario;
+        const professor = await this.professorRepository.getById(id);
+        if (!professor)
+            throw new Error("Professor não encontrado");
 
-        // Deleta professor
-        await this.db.query("DELETE FROM professores WHERE id_professores = $1", [id]);
-        // Deleta usuário
-        await this.db.query("DELETE FROM usuarios WHERE id_usuarios = $1", [usuario_id]);
+        await this.professorRepository.saveProfessorDisciplinas(id, []);
+        await this.professorRepository.saveProfessorTurmas(id, []);
+
+        await this.professorRepository.delete(id);
+        await this.usuarioService.delete(professor.idUsuario);
+    }
+
+
+    // GET BY USUARIO ID
+    async getByUsuarioId(usuarioId) {
+
+        const professor = await this.professorRepository.getByUsuarioId(usuarioId);
+
+
+        if (!professor) {
+            return null;
+        }
+
+        // Carregar dados completos
+        const professorCompleto = {
+            ...professor,
+            usuario: await this.usuarioService.getById(professor.idUsuario),
+            disciplinaEspecialidade: await this.disciplinaService.getById(professor.idDisciplinaEspecialidade),
+            disciplinas: await this.professorRepository.getProfessorDisciplinas(professor.id),
+            turmas: await this.professorRepository.getProfessorTurmas(professor.id)
+        };
+
+        return professorCompleto;
     }
 }

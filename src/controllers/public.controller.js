@@ -1,4 +1,3 @@
-// src/controllers/public.controller.js
 import { Router } from 'express';
 import { UsuarioService } from '../services/usuario.service.js';
 
