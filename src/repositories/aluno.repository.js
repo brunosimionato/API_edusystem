@@ -10,7 +10,6 @@ export class AlunoRepository {
             cpf,
         ]);
 
-        // retorna linha ou null
         return res.rows[0] || null;
     }
 
@@ -325,7 +324,6 @@ export class AlunoRepository {
     }
 
     async delete(id) {
-        console.log("🗑️ [REPOSITORY] Deletando aluno ID:", id);
 
         await this.db.query("BEGIN");
 

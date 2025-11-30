@@ -52,8 +52,6 @@ export class HorarioService {
                 throw new Error('Horário não encontrado');
             }
 
-            // REMOVIDO: Verificação de conflito
-            // Atualizar diretamente sem verificar conflitos
             return await this.horarioRepository.update(id, updateData);
         } catch (error) {
             console.error('Erro ao atualizar horário:', error);

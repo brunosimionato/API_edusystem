@@ -65,14 +65,12 @@ export function createNotaRouter(db, hashingService) {
         }
     });
 
-    // NOVAS ROTAS PARA RELATÓRIOS E CONSULTAS
-
     // Médias trimestrais de um aluno
     router.get('/aluno/:idAluno/medias', async (req, res) => {
         try {
             const { idAluno } = req.params;
             const { anoLetivo } = req.query;
-            
+
             if (!anoLetivo) {
                 return res.status(400).json({ error: 'Ano letivo é obrigatório' });
             }
@@ -89,7 +87,7 @@ export function createNotaRouter(db, hashingService) {
         try {
             const { idAluno } = req.params;
             const { anoLetivo } = req.query;
-            
+
             if (!anoLetivo) {
                 return res.status(400).json({ error: 'Ano letivo é obrigatório' });
             }
@@ -106,10 +104,10 @@ export function createNotaRouter(db, hashingService) {
         try {
             const { idTurma } = req.params;
             const { anoLetivo, trimestre } = req.query;
-            
+
             if (!anoLetivo || !trimestre) {
-                return res.status(400).json({ 
-                    error: 'Ano letivo e trimestre são obrigatórios' 
+                return res.status(400).json({
+                    error: 'Ano letivo e trimestre são obrigatórios'
                 });
             }
 
@@ -125,7 +123,7 @@ export function createNotaRouter(db, hashingService) {
         try {
             const { idAluno } = req.params;
             const { anoLetivo } = req.query;
-            
+
             if (!anoLetivo) {
                 return res.status(400).json({ error: 'Ano letivo é obrigatório' });
             }
@@ -142,15 +140,15 @@ export function createNotaRouter(db, hashingService) {
         try {
             const { idTurma } = req.params;
             const { anoLetivo, trimestre, idDisciplina } = req.query;
-            
+
             if (!anoLetivo) {
                 return res.status(400).json({ error: 'Ano letivo é obrigatório' });
             }
 
             const estatisticas = await notaService.getEstatisticasTurma(
-                idTurma, 
-                anoLetivo, 
-                trimestre, 
+                idTurma,
+                anoLetivo,
+                trimestre,
                 idDisciplina
             );
             res.json(estatisticas);

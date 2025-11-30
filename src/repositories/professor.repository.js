@@ -160,7 +160,7 @@ export class ProfessorRepository {
         });
     }
 
-    
+
     // UPDATE
     async update(id, data) {
         const res = await this.db.query(
@@ -249,7 +249,7 @@ export class ProfessorRepository {
         }
     }
 
-    
+
     // TURMAS
     async getProfessorTurmas(idProfessor) {
         const res = await this.db.query(

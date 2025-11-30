@@ -21,7 +21,6 @@ import { createHorarioRouter } from './controllers/horario.controller.js';
 import { createDashboardRouter } from './controllers/dashboard.controller.js';
 import { createDashboardProfessorRouter } from './controllers/dashboardProfesor.controller.js';
 
-
 config()
 
 const port = process.env.PORT;
@@ -46,16 +45,12 @@ app.get("/", (req, res) => {
 })
 
 app.post('/public/first-user', async (req, res) => {
-    console.log('🎯 ROTA PÚBLICA ACESSADA DIRECTAMENTE!');
-    console.log('Body recebido:', req.body);
-
     try {
         const { UsuarioService } = await import('./services/usuario.service.js');
         const usuarioService = new UsuarioService(db, hashingService);
 
         // Verifica se já existe algum usuário
         const usuarios = await usuarioService.list();
-        console.log(`Usuários existentes: ${usuarios.length}`);
 
         if (usuarios.length > 0) {
             return res.status(403).json({
@@ -65,7 +60,6 @@ app.post('/public/first-user', async (req, res) => {
 
         const usuarioCriado = await usuarioService.create(req.body);
 
-        console.log('✅ Primeiro usuário criado com sucesso!');
         res.status(201).json({
             message: 'Primeiro usuário criado com sucesso!',
             usuario: usuarioCriado

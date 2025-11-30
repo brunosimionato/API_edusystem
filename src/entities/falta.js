@@ -27,8 +27,8 @@ export class NovaFalta {
             throw new Error('Não é possível registrar falta para data futura');
         }
     }
-    
-    
+
+
     toController() {
         return {
             idAluno: this.idAluno,
@@ -48,7 +48,7 @@ export class Falta {
         this.createdAt = validated.createdAt;
         this.updatedAt = validated.updatedAt;
     }
-    
+
     static fromController(obj) {
         return new Falta({
             id: obj.id,
@@ -59,7 +59,7 @@ export class Falta {
             updatedAt: obj.updatedAt ? new Date(obj.updatedAt) : undefined
         });
     }
-    
+
     toJSON() {
         return {
             id: this.id,
