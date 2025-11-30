@@ -29,7 +29,6 @@ export class ProfessorService {
         );
     }
 
-
     // GET BY ID
     async getById(id) {
         const professor = await this.professorRepository.getById(id);
@@ -49,18 +48,11 @@ export class ProfessorService {
 
     // CREATE
     async create(novoUsuario, professorPayload, disciplinas = [], turmas = []) {
-
         const novoProfessor = NovoProfessor.fromObj({
             ...professorPayload,
             idDisciplinas: disciplinas,
             turmas: turmas
         });
-
-        console.log("CREATE Professor - Dados recebidos:");
-        console.log("Usuário:", novoUsuario);
-        console.log("Professor:", professorPayload);
-        console.log("Disciplinas:", disciplinas);
-        console.log("Turmas:", turmas);
 
         // Criar usuário
         if (!novoProfessor.idUsuario) {
@@ -91,30 +83,19 @@ export class ProfessorService {
 
     // UPDATE
     async update(id, professorPayload, disciplinas, turmas, usuarioPayload) {
-
         // 1. Buscar professor existente
         const atual = await this.professorRepository.getById(id);
         if (!atual) {
             throw new Error("Professor não encontrado");
         }
 
-
         // 2. ATUALIZAR USUÁRIO (ONDE ESTÁ O NOME)
         if (usuarioPayload && atual.idUsuario) {
-
-            try {
-                await this.usuarioService.update(atual.idUsuario, {
-                    nome: usuarioPayload.nome,
-                    email: usuarioPayload.email,
-                    tipo_usuario: "professor"
-                });
-                console.log("✅ Usuário atualizado com sucesso");
-            } catch (error) {
-                console.error("❌ Erro ao atualizar usuário:", error);
-                throw new Error("Falha ao atualizar dados do usuário: " + error.message);
-            }
-        } else {
-            console.log("⚠️  Dados de usuário não fornecidos ou ID usuário não encontrado");
+            await this.usuarioService.update(atual.idUsuario, {
+                nome: usuarioPayload.nome,
+                email: usuarioPayload.email,
+                tipo_usuario: "professor"
+            });
         }
 
         // 3. Preparar dados do professor com relacionamentos
@@ -125,39 +106,21 @@ export class ProfessorService {
             turmas: turmas
         };
 
-        console.log("🎯 Dados completos do professor:", professorCompleto);
-
         // 4. Converter e validar dados do professor
         const parsedProfessor = NovoProfessor.fromObj(professorCompleto);
 
         // 5. Atualizar professor
-        try {
-            await this.professorRepository.update(id, parsedProfessor);
-        } catch (error) {
-            console.error("❌ Erro ao atualizar professor:", error);
-            throw new Error("Falha ao atualizar dados do professor: " + error.message);
-        }
+        await this.professorRepository.update(id, parsedProfessor);
 
         // 6. Atualizar relacionamentos
-        try {
-            await this.professorRepository.saveProfessorDisciplinas(id, disciplinas);
-            console.log("✅ Disciplinas atualizadas:", disciplinas);
-
-            await this.professorRepository.saveProfessorTurmas(id, turmas);
-            console.log("✅ Turmas atualizadas:", turmas);
-        } catch (error) {
-            console.error("❌ Erro ao atualizar relacionamentos:", error);
-            throw new Error("Falha ao atualizar disciplinas/turmas: " + error.message);
-        }
+        await this.professorRepository.saveProfessorDisciplinas(id, disciplinas);
+        await this.professorRepository.saveProfessorTurmas(id, turmas);
 
         // 7. Retornar professor atualizado
-        const professorAtualizado = await this.getById(id);
-        console.log("🎉 Professor completamente atualizado:", professorAtualizado);
-
-        return professorAtualizado;
+        return await this.getById(id);
     }
 
-    //DELETE
+    // DELETE
     async delete(id) {
         const professor = await this.professorRepository.getById(id);
         if (!professor)
@@ -170,12 +133,9 @@ export class ProfessorService {
         await this.usuarioService.delete(professor.idUsuario);
     }
 
-
     // GET BY USUARIO ID
     async getByUsuarioId(usuarioId) {
-
         const professor = await this.professorRepository.getByUsuarioId(usuarioId);
-
 
         if (!professor) {
             return null;

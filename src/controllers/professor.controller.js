@@ -88,10 +88,10 @@ export function createProfessorRouter(db, hashingService) {
         try {
             const professorAtualizado = await professorService.update(
                 id,
-                req.body.professor,                      
-                req.body.professor.idDisciplinas ?? [],   
-                req.body.professor.turmas ?? [],        
-                req.body.usuario                          
+                req.body.professor,
+                req.body.professor.idDisciplinas ?? [],
+                req.body.professor.turmas ?? [],
+                req.body.usuario
             );
 
             res.json(professorAtualizado);

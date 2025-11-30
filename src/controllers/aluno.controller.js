@@ -5,7 +5,6 @@ import { AlunoRepository } from '../repositories/aluno.repository.js';
 import { createAuthMiddleware } from './auth.middleware.js';
 import { HistoricoEscolarRepository } from "../repositories/historico_escolar.repository.js";
 
-
 export class AlunoController {
   constructor(db) {
     const alunoRepository = new AlunoRepository(db);
@@ -18,12 +17,9 @@ export class AlunoController {
     );
   }
 
-
   async list(req, res) {
     try {
       const filters = req.query;
-      console.log('🔍 Filtros recebidos para alunos:', filters);
-
       const alunos = await this.alunoService.list(filters);
       res.json(alunos);
 
@@ -36,7 +32,6 @@ export class AlunoController {
   async getById(req, res) {
     try {
       const { id } = req.params;
-
       const aluno = await this.alunoService.getAlunoComHistorico(id);
 
       if (!aluno) {
@@ -51,14 +46,10 @@ export class AlunoController {
     }
   }
 
-
-  // BUSCA ALUNOS POR TURMA
   async getByTurma(req, res) {
     try {
       const { idTurma } = req.params;
-
       const alunos = await this.alunoService.getByTurma(idTurma);
-
       res.json(alunos);
     } catch (error) {
       console.error("❌ Erro no getByTurma:", error);
@@ -66,10 +57,7 @@ export class AlunoController {
     }
   }
 
-
   async create(req, res) {
-    console.log("🟣 DUMP do historicoEscolar recebido:", req.body.historicoEscolar);
-
     try {
       const alunoData = {
         nome: req.body.nome,
@@ -108,7 +96,6 @@ export class AlunoController {
 
     } catch (error) {
       if (error instanceof ZodError) {
-        console.error("❌ Erro de validação ZOD:", error.issues);
         return res.status(400).json({
           error: "Dados inválidos",
           detalhes: error.issues,
@@ -120,8 +107,6 @@ export class AlunoController {
   }
 
   async update(req, res) {
-    console.log("🟦 Recebido no backend (UPDATE):", req.body);
-
     try {
       const { id } = req.params;
 
@@ -132,16 +117,12 @@ export class AlunoController {
       data.responsavel1Telefone = data.responsavel1Telefone ?? "";
       data.responsavel1Parentesco = data.responsavel1Parentesco ?? "";
 
-
       data.responsavel2Nome = data.responsavel2Nome ?? null;
       data.responsavel2Cpf = data.responsavel2Cpf ?? null;
       data.responsavel2Telefone = data.responsavel2Telefone ?? null;
       data.responsavel2Parentesco = data.responsavel2Parentesco ?? null;
 
-      console.log("📤 Enviando para alunoService.update():", data);
-
       const alunoAtualizado = await this.alunoService.update(parseInt(id), data);
-
       return res.json(alunoAtualizado);
 
     } catch (error) {
@@ -155,9 +136,7 @@ export class AlunoController {
         return res.status(409).json({ error: error.message });
       }
 
-
       return res.status(500).json({ error: "Erro ao atualizar aluno" });
-
     }
   }
 
@@ -183,7 +162,6 @@ export function createAlunoRouter(db, hashingService) {
   router.use(createAuthMiddleware(hashingService));
 
   router.get('/turma/:idTurma', (req, res) => alunoController.getByTurma(req, res));
-
   router.get('/', (req, res) => alunoController.list(req, res));
   router.post('/', (req, res) => alunoController.create(req, res));
   router.put('/:id', (req, res) => alunoController.update(req, res));

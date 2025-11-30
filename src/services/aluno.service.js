@@ -37,11 +37,9 @@ function converterHistoricoBackendParaFront(historico) {
             };
         }
 
-        // Preencher nota na disciplina correta:
         porAno[ano].notas[mapearDisciplina(h.idDisciplina)] = h.nota;
     });
 
-    // retorno como array ordenado por serie
     return Object.values(porAno).sort((a, b) =>
         a.serieAnterior.localeCompare(b.serieAnterior)
     );
@@ -68,7 +66,7 @@ export class AlunoService {
     constructor(db, alunoRepository, historicoEscolarRepository) {
         this.db = db;
         this.alunoRepository = alunoRepository;
-        this.historicoEscolarRepository = historicoEscolarRepository; // agora existe
+        this.historicoEscolarRepository = historicoEscolarRepository;
     }
 
     async list(filters = {}) {
@@ -115,7 +113,7 @@ export class AlunoService {
                 [alunoCriado.id, novoAluno.turma]
             );
 
-            // Salvar histórico escolar (se houver)
+            // Salvar histórico escolar
             if (Array.isArray(novoAluno.historicoEscolar)) {
                 for (const h of novoAluno.historicoEscolar) {
 
@@ -195,7 +193,6 @@ export class AlunoService {
                 updateData.historicoEscolar === "null" ||
                 (Array.isArray(updateData.historicoEscolar) && updateData.historicoEscolar.length === 0)
             ) {
-                console.log("🗑️ [SERVICE] Apagando TODO histórico do aluno", id);
 
                 await client.query(
                     "DELETE FROM historicos_escolares WHERE id_aluno = $1",
@@ -227,7 +224,6 @@ export class AlunoService {
 
             await client.query("COMMIT");
 
-            console.log("🎉 UPDATE concluído com sucesso!");
             return alunoAtualizado;
 
         } catch (error) {
@@ -246,15 +242,11 @@ export class AlunoService {
     }
 
     async getAlunoComHistorico(id) {
-        console.log("📌 [SERVICE] Buscando aluno ID:", id);
 
         const aluno = await this.alunoRepository.getById(id);
-        console.log("📚 [SERVICE] Dados do aluno:", aluno);
-
         if (!aluno) return null;
 
         const historico = await this.historicoEscolarRepository.getByAlunoId(id);
-        console.log("📘 [SERVICE] Histórico escolar encontrado:", historico);
 
         return {
             ...aluno,

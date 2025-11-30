@@ -87,7 +87,6 @@ export class NotaRepository {
     }
 
     async update(id, updateData) {
-        // Construir query dinâmica para update
         const fields = [];
         const values = [];
         let paramCount = 1;
