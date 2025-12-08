@@ -279,10 +279,10 @@ export class AlunoRepository {
                 updateData.responsavel1Telefone,
                 updateData.responsavel1Parentesco,
 
-                updateData.responsavel2Nome,
-                updateData.responsavel2Cpf,
-                updateData.responsavel2Telefone,
-                updateData.responsavel2Parentesco,
+                updateData.responsavel2Nome || null,
+                updateData.responsavel2Cpf || null,
+                updateData.responsavel2Telefone || null,
+                updateData.responsavel2Parentesco || null,
 
                 id,
             ]
@@ -324,29 +324,150 @@ export class AlunoRepository {
     }
 
     async delete(id) {
+        const client = await this.db.connect();
+        
+        try {
+            console.log(`[REPOSITORY] Iniciando exclusão em cascata do aluno ID: ${id}`);
+            
+            await client.query("BEGIN");
 
-        await this.db.query("BEGIN");
+            // 1. Entregas_Tarefas
+            console.log(`Excluindo entregas_tarefas do aluno ${id}...`);
+            await client.query(
+                `DELETE FROM entregas_tarefas WHERE id_aluno = $1`,
+                [id]
+            );
 
-        await this.db.query(
-            `DELETE FROM historicos_escolares 
-         WHERE id_aluno = $1`,
-            [id]
-        );
+            // 2. Faltas
+            console.log(`Excluindo faltas do aluno ${id}...`);
+            await client.query(
+                `DELETE FROM faltas WHERE id_aluno = $1`,
+                [id]
+            );
 
-        await this.db.query(
-            `DELETE FROM alunos_turmas 
-         WHERE id_aluno = $1`,
-            [id]
-        );
+            // 3. Disciplinas_Notas
+            console.log(`Excluindo disciplinas_notas do aluno ${id}...`);
+            await client.query(
+                `DELETE FROM disciplinas_notas WHERE id_aluno = $1`,
+                [id]
+            );
 
-        const res = await this.db.query(
-            `DELETE FROM alunos 
-         WHERE id_alunos = $1`,
-            [id]
-        );
+            // 4. Notas
+            console.log(`Excluindo notas do aluno ${id}...`);
+            await client.query(
+                `DELETE FROM notas WHERE id_aluno = $1`,
+                [id]
+            );
 
-        await this.db.query("COMMIT");
+            // 5. Ocorrencias
+            console.log(`Excluindo ocorrencias do aluno ${id}...`);
+            await client.query(
+                `DELETE FROM ocorrencias WHERE id_aluno = $1`,
+                [id]
+            );
 
-        if (res.rowCount === 0) throw new Error("Aluno não encontrado!");
+            // 6. Historicos_Escolares
+            console.log(`Excluindo historicos_escolares do aluno ${id}...`);
+            await client.query(
+                `DELETE FROM historicos_escolares WHERE id_aluno = $1`,
+                [id]
+            );
+
+            // 7. Alunos_Turmas
+            console.log(`Excluindo alunos_turmas do aluno ${id}...`);
+            await client.query(
+                `DELETE FROM alunos_turmas WHERE id_aluno = $1`,
+                [id]
+            );
+
+            // 8. FINALMENTE exclui o aluno
+            console.log(`Excluindo aluno ${id}...`);
+            const res = await client.query(
+                `DELETE FROM alunos WHERE id_alunos = $1`,
+                [id]
+            );
+
+            await client.query("COMMIT");
+
+            if (res.rowCount === 0) {
+                throw new Error("Aluno não encontrado!");
+            }
+
+            console.log(`[REPOSITORY] Aluno ID ${id} excluído com sucesso com todos os registros relacionados.`);
+            return { success: true, message: "Aluno excluído com todos os registros relacionados" };
+            
+        } catch (error) {
+            await client.query("ROLLBACK");
+            console.error(`[REPOSITORY] Erro ao excluir aluno ID ${id}:`, error);
+            
+            // Melhora a mensagem de erro
+            if (error.message.includes("foreign key") || 
+                error.message.includes("constraint") ||
+                error.message.includes("viola restrição")) {
+                
+                throw new Error(
+                    `Não é possível excluir o aluno ID ${id}. ` +
+                    `Existem registros vinculados que impedem a exclusão. ` +
+                    `Verifique se todas as tabelas relacionadas estão sendo excluídas corretamente.`
+                );
+            }
+            
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    // Método para verificar se CPF já existe (mantido para validação)
+    async checkCpfExists(cpf, excludeId = null) {
+        let query = `SELECT COUNT(*) as count FROM alunos WHERE cpf = $1`;
+        const params = [cpf];
+        
+        if (excludeId) {
+            query += ` AND id_alunos != $2`;
+            params.push(excludeId);
+        }
+        
+        const res = await this.db.query(query, params);
+        return parseInt(res.rows[0].count) > 0;
+    }
+
+    // Buscar alunos com filtros (simplificado)
+    async search(filters = {}) {
+        let query = `
+            SELECT DISTINCT a.*, at.id_turma 
+            FROM alunos a 
+            LEFT JOIN alunos_turmas at ON a.id_alunos = at.id_aluno 
+            WHERE 1=1
+        `;
+
+        const params = [];
+        let paramCount = 0;
+
+        // Filtro por nome
+        if (filters.nome) {
+            paramCount++;
+            query += ` AND LOWER(a.nome) LIKE LOWER($${paramCount})`;
+            params.push(`%${filters.nome}%`);
+        }
+
+        // Filtro por CPF
+        if (filters.cpf) {
+            paramCount++;
+            query += ` AND a.cpf LIKE $${paramCount}`;
+            params.push(`%${filters.cpf}%`);
+        }
+
+        // Filtro por turma
+        if (filters.turmaId) {
+            paramCount++;
+            query += ` AND at.id_turma = $${paramCount}`;
+            params.push(filters.turmaId);
+        }
+
+        query += " ORDER BY a.nome";
+
+        const res = await this.db.query(query, params);
+        return res.rows.map((row) => this.mapRowToAluno(row));
     }
 }

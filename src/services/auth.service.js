@@ -47,7 +47,7 @@ export class AuthService {
         }
 
         if (usuario.tipo_usuario !== credentials.role) {
-            throw new Error('Role inválida para este usuário');
+            throw new Error('Selecione o tipo de usuário correto.');
         }
 
         let entityService;
